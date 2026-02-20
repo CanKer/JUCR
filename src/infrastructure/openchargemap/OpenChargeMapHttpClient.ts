@@ -5,6 +5,7 @@ type OcmRequestError = Error & {
   status?: number;
   body?: string;
   isTimeout?: boolean;
+  retryDelayMs?: number;
 };
 
 /**
@@ -55,6 +56,12 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
         const err = new Error(`OCM request failed: ${res.status}`) as OcmRequestError;
         err.status = res.status;
         err.body = body;
+        if (res.status === 429) {
+          const retryAfter = res.headers.get("retry-after");
+          if (retryAfter && /^\d+$/.test(retryAfter)) {
+            err.retryDelayMs = Number(retryAfter) * 1000;
+          }
+        }
         throw err;
       }
 
@@ -74,7 +81,9 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
         if (ocmError.isTimeout) return true;
 
         const status = ocmError.status;
-        if (status === 429) return true;
+        if (status === 429) {
+          return { retry: true, delayMs: ocmError.retryDelayMs };
+        }
         if (typeof status === "number" && status >= 500) return true;
         if (typeof status === "number") return false;
         return true;

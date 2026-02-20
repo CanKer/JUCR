@@ -265,8 +265,21 @@ Details:
 - object shape `{ retry: boolean; delayMs?: number }` for per-attempt custom delays.
 - Added tests validating custom delay wiring and compatibility behavior.
 
+#### B2.5 - `feat(http): respect Retry-After header for 429 responses`
+Status: `DONE`  
+Commits: `feat(http): respect Retry-After header for 429 responses`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.retry-after.test.ts`
+
+Details:
+- Added `Retry-After` parsing for HTTP `429` responses in the OpenChargeMap client.
+- Supports integer seconds format and converts to milliseconds.
+- For valid `Retry-After`, retry policy receives custom delay through the shared retry utility.
+- For missing/invalid header values, retry falls back to standard backoff behavior.
+- Added unit test that simulates `429 + Retry-After=1` twice, then success.
+
 Remaining Phase B items:
-- B2.5 `feat(http): respect Retry-After header for 429 responses`
 - B2.6 `test(e2e): simulate 429 with Retry-After in fake ocm server`
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`

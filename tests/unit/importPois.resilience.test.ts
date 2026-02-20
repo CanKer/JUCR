@@ -109,6 +109,14 @@ const createRetryingFakeClient = (opts: {
   };
 };
 
+const snapshotByExternalId = (docsByExternalId: Map<number, PoiDoc>) =>
+  Array.from(docsByExternalId.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([externalId, doc]) => ({
+      externalId,
+      title: (doc.raw.AddressInfo as { Title?: string } | undefined)?.Title ?? null
+    }));
+
 describe("importPois resilience without Mongo dependency", () => {
   let logSpy: jest.SpyInstance;
 
@@ -174,5 +182,29 @@ describe("importPois resilience without Mongo dependency", () => {
 
     expect(docsByExternalId.size).toBe(25);
     expect(getRequestAttempts()).toBe(5);
+  });
+
+  it("produces the same imported dataset for concurrency 1 and 20", async () => {
+    const firstRun = createRetryingFakeClient({ total: 53 });
+    const firstRepo = createInMemoryUpsertRepo();
+
+    await importPois({
+      client: firstRun.client,
+      repo: firstRepo.repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 1 }
+    });
+
+    const secondRun = createRetryingFakeClient({ total: 53 });
+    const secondRepo = createInMemoryUpsertRepo();
+
+    await importPois({
+      client: secondRun.client,
+      repo: secondRepo.repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 20 }
+    });
+
+    expect(snapshotByExternalId(firstRepo.docsByExternalId)).toEqual(snapshotByExternalId(secondRepo.docsByExternalId));
+    expect(firstRepo.docsByExternalId.size).toBe(53);
+    expect(secondRepo.docsByExternalId.size).toBe(53);
   });
 });

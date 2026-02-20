@@ -351,6 +351,17 @@ Details:
 - only one operation per repeated key is emitted.
 - latest payload wins for duplicate keys.
 
+#### B5.15 - `test(import): validate results unchanged across concurrency levels`
+Status: `DONE`  
+Commits: `test(import): validate concurrency invariance in import results`  
+Paths:
+- `tests/unit/importPois.resilience.test.ts`
+
+Details:
+- Added a unit test that runs `importPois` twice with the same dataset and different concurrency values (`1` vs `20`).
+- Verifies imported dataset equivalence by `externalId` and normalized payload snapshot.
+- Confirms import output remains deterministic across concurrency settings.
+
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
@@ -358,7 +369,6 @@ Remaining Phase B items:
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
 - B5.14 `test(import): cover retry without Retry-After fallback backoff`
-- B5.15 `test(import): validate results unchanged across concurrency levels`
 - B6.16 `docs: add performance and scalability reasoning for importer`
 
 ---

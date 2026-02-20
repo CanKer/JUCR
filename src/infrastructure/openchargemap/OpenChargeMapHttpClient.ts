@@ -84,6 +84,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
         if (status === 429) {
           return { retry: true, delayMs: ocmError.retryDelayMs };
         }
+        if (typeof status === "number" && status >= 400 && status < 500) return false;
         if (typeof status === "number" && status >= 500) return true;
         if (typeof status === "number") return false;
         return true;

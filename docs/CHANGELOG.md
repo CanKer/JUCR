@@ -376,6 +376,19 @@ Details:
 - non-validation failures still failing the import,
 - error-handler classification/wrapping behavior in isolation.
 
+#### B3.9 - `feat(http): treat 4xx (except 429) as fatal errors`
+Status: `DONE`  
+Commits: `feat(http): treat non-429 4xx responses as fatal errors`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.retry.test.ts`
+
+Details:
+- Made retry policy explicit for client errors:
+- `429` remains retryable (with optional `Retry-After` delay),
+- all other `4xx` responses are fatal and never retried.
+- Expanded unit coverage to include additional `4xx` statuses (`404`, `409`, `422`) and assert single-request behavior.
+
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  
 Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
@@ -426,7 +439,6 @@ Details:
 - conceptual horizontal-scaling strategy for later phases.
 
 Remaining Phase B items:
-- B3.9 `feat(http): treat 4xx (except 429) as fatal errors`
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
 

@@ -72,7 +72,7 @@ describe("OpenChargeMapHttpClient retry policy", () => {
     await server.close();
   });
 
-  it.each([400, 401, 403])("treats %s as fatal (no retry)", async (status) => {
+  it.each([400, 401, 403, 404, 409, 422])("treats non-429 4xx (%s) as fatal (no retry)", async (status) => {
     let requests = 0;
     const server = await startServer((_req, res) => {
       requests += 1;

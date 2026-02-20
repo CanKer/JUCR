@@ -90,9 +90,10 @@ const run = process.env.REQUIRE_MONGO_E2E === "1";
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
     });
 
-    const before = await pois.findOne({ externalId: 1 });
-    const beforeId = before?._id;
-    expect(before?.raw?.AddressInfo?.Title).toBe("POI 1");
+    const beforeDocs = await pois.find().toArray();
+    expect(beforeDocs).toHaveLength(25);
+    const beforeIdentities = identitySnapshot(beforeDocs);
+    expect(beforeDocs.some((doc) => doc.raw?.AddressInfo?.Title === "POI 1")).toBe(true);
 
     await importPois({
       client: ocm,
@@ -100,10 +101,10 @@ const run = process.env.REQUIRE_MONGO_E2E === "1";
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "update" }
     });
 
-    const after = await pois.findOne({ externalId: 1 });
-    expect(after?._id).toBe(beforeId);
-    expect(after?.raw?.AddressInfo?.Title).toBe("POI 1 (updated)");
-    expect(await pois.countDocuments()).toBe(25);
+    const afterDocs = await pois.find().toArray();
+    expect(afterDocs).toHaveLength(25);
+    expect(identitySnapshot(afterDocs)).toEqual(beforeIdentities);
+    expect(afterDocs.every((doc) => doc.raw?.AddressInfo?.Title?.endsWith("(updated)") === true)).toBe(true);
 
     await repo.close();
   });

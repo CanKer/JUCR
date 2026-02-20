@@ -402,6 +402,17 @@ Details:
 - Captures full identity snapshot (`externalId`, `_id`) after first import and verifies it is identical after second import.
 - Keeps duplicate detection by aggregation to ensure there are no repeated `externalId` documents.
 
+#### B4.11 - `test(e2e): prove updates overwrite existing docs (dataset update)`
+Status: `DONE`  
+Commits: `test(e2e): strengthen update overwrite proof in Mongo e2e`  
+Paths:
+- `tests/e2e/importPois.e2e.test.ts`
+
+Details:
+- Strengthened Mongo e2e update assertions for importing the `update` dataset after initial `small` load.
+- Verifies identity stability across all documents by comparing complete (`externalId`, `_id`) snapshots before and after update import.
+- Verifies updated payload overwrite by asserting every persisted title ends with `"(updated)"`.
+
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  
 Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
@@ -452,7 +463,7 @@ Details:
 - conceptual horizontal-scaling strategy for later phases.
 
 Remaining Phase B items:
-- B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
+- None.
 
 ---
 

@@ -21,6 +21,7 @@ jobs:
           --health-retries 20
 
     env:
+      REQUIRE_MONGO_E2E: "1"
       MONGO_URI: mongodb://localhost:27017/jucr
       OCM_API_KEY: ff82541f-c8d1-4507-be67-bd07e3259c4e
       OCM_BASE_URL: http://localhost:3999

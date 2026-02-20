@@ -303,6 +303,21 @@ Details:
 - Added e2e test proving importer recovers after transient `500` failures.
 - Both tests assert import completion and expected Mongo document count.
 
+#### B2.8 - `test: reduce Mongo dependency for resilience scenarios`
+Status: `DONE`  
+Commits: `test: decouple resilience/pagination scenarios from Mongo e2e`  
+Paths:
+- `tests/unit/importPois.resilience.test.ts`
+- `tests/e2e/importPois.e2e.test.ts`
+- `.github/workflows/ci.yml`
+
+Details:
+- Moved resilience and multi-page coverage (`429`, `500`, and >3 pages) to non-Mongo tests using in-memory repository doubles.
+- Kept Mongo e2e focused on persistence semantics (idempotent upsert and updates).
+- Guarded Mongo e2e execution behind `REQUIRE_MONGO_E2E=1`.
+- Enabled that flag in CI so full integration checks still run in pipeline.
+- Improves local test reliability while preserving integration confidence in CI.
+
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`

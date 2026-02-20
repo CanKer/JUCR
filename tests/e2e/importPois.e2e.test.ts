@@ -15,7 +15,9 @@ type PersistedPoi = {
   };
 };
 
-describe("importPois (e2e)", () => {
+const describeMongo = process.env.REQUIRE_MONGO_E2E === "1" ? describe : describe.skip;
+
+describeMongo("importPois (mongo e2e)", () => {
   const mongoUri = process.env.MONGO_URI ?? "mongodb://127.0.0.1:27017/jucr";
   const dbName = "jucr";
   const colName = "pois";
@@ -103,51 +105,4 @@ describe("importPois (e2e)", () => {
     await repo.close();
   });
 
-  it("imports a dataset spanning more than three pages", async () => {
-    const ocm = new OpenChargeMapHttpClient(baseUrl, apiKey);
-    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
-    const pois = client.db(dbName).collection<PersistedPoi>(colName);
-
-    await importPois({
-      client: ocm,
-      repo,
-      config: { ...defaultImporterConfig, pageSize: 300, concurrency: 10, dataset: "large" }
-    });
-
-    expect(await pois.countDocuments()).toBe(1500);
-
-    await repo.close();
-  });
-
-  it("recovers from transient 429 responses with Retry-After", async () => {
-    const ocm = new OpenChargeMapHttpClient(`${baseUrl}?ratelimit=2`, apiKey);
-    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
-    const pois = client.db(dbName).collection<PersistedPoi>(colName);
-
-    await importPois({
-      client: ocm,
-      repo,
-      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
-    });
-
-    expect(await pois.countDocuments()).toBe(25);
-
-    await repo.close();
-  });
-
-  it("recovers from transient 500 responses", async () => {
-    const ocm = new OpenChargeMapHttpClient(`${baseUrl}?fail500=2`, apiKey);
-    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
-    const pois = client.db(dbName).collection<PersistedPoi>(colName);
-
-    await importPois({
-      client: ocm,
-      repo,
-      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
-    });
-
-    expect(await pois.countDocuments()).toBe(25);
-
-    await repo.close();
-  });
 });

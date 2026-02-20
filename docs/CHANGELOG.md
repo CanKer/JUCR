@@ -530,6 +530,20 @@ Details:
 - CI points to local fake OCM, so real key material is unnecessary.
 - Removes credential leakage risk from repo artifacts and shared bundles.
 
+### M4 - `docs(performance): clarify idempotency guarantees and limits`
+Status: `DONE`  
+Commits: `docs(performance): clarify idempotency guarantees and limits`  
+Paths:
+- `docs/PERFORMANCE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added an explicit `Idempotency model` section to the performance document.
+- Documented storage-level guarantees provided by upserts on unique `externalId`.
+- Documented non-goals:
+- idempotent writes do not prevent duplicate upstream requests,
+- and do not replace partition leasing/distributed rate limiting for multi-worker execution.
+
 ---
 
 ## PHASE C - Documentation & Professional Polish

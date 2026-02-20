@@ -58,4 +58,42 @@ describe("OpenChargeMapHttpClient Retry-After support", () => {
     timeoutSpy.mockRestore();
     randomSpy.mockRestore();
   });
+
+  it.each(["missing", "invalid"] as const)(
+    "falls back to normal backoff when Retry-After is %s",
+    async (mode) => {
+      const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
+      const timeoutSpy = jest.spyOn(global, "setTimeout");
+
+      let requests = 0;
+      const server = await startServer((_req, res) => {
+        requests += 1;
+        if (requests === 1) {
+          const headers: Record<string, string> = { "content-type": "text/plain" };
+          if (mode === "invalid") headers["Retry-After"] = "NaN";
+          res.writeHead(429, headers);
+          res.end("rate limited");
+          return;
+        }
+
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
+      });
+
+      const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 5000);
+      const pois = await client.fetchPois({ limit: 10, offset: 0 });
+
+      expect(pois).toHaveLength(1);
+      expect(requests).toBe(2);
+
+      const usedFallbackBackoff = timeoutSpy.mock.calls.some((call) => call[1] === 250);
+      const usedRetryAfterDelay = timeoutSpy.mock.calls.some((call) => call[1] === 1000);
+      expect(usedFallbackBackoff).toBe(true);
+      expect(usedRetryAfterDelay).toBe(false);
+
+      await server.close();
+      timeoutSpy.mockRestore();
+      randomSpy.mockRestore();
+    }
+  );
 });

@@ -391,6 +391,17 @@ Details:
 - Verifies imported dataset equivalence by `externalId` and normalized payload snapshot.
 - Confirms import output remains deterministic across concurrency settings.
 
+#### B5.14 - `test(import): cover retry without Retry-After fallback backoff`
+Status: `DONE`  
+Commits: `test(http): cover fallback backoff when Retry-After is missing or invalid`  
+Paths:
+- `tests/unit/http-client.retry-after.test.ts`
+
+Details:
+- Added explicit coverage for `429` responses where `Retry-After` is missing or invalid.
+- Verifies client falls back to default retry backoff instead of custom `Retry-After` delay.
+- Keeps existing successful path coverage for valid `Retry-After` values.
+
 #### B6.16 - `docs: add performance and scalability reasoning for importer`
 Status: `DONE`  
 Commits: `docs: add performance and scalability notes for importer`  
@@ -408,7 +419,6 @@ Remaining Phase B items:
 - B3.9 `feat(http): treat 4xx (except 429) as fatal errors`
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
-- B5.14 `test(import): cover retry without Retry-After fallback backoff`
 
 ---
 

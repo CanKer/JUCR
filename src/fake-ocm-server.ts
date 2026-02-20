@@ -22,11 +22,23 @@ const datasets: Record<string, { total: number; titleSuffix: string }> = {
   update: { total: 25, titleSuffix: " (updated)" }
 };
 
+let rateLimitedResponses = 0;
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${port}`);
   if (url.pathname !== "/poi") {
     res.writeHead(404);
     return res.end();
+  }
+
+  const rateLimit = Number(url.searchParams.get("ratelimit") ?? "0");
+  if (Number.isFinite(rateLimit) && rateLimit > 0 && rateLimitedResponses < rateLimit) {
+    rateLimitedResponses += 1;
+    res.writeHead(429, {
+      "content-type": "application/json",
+      "Retry-After": "1"
+    });
+    return res.end(JSON.stringify({ error: "rate_limited" }));
   }
 
   const datasetName = url.searchParams.get("dataset") ?? "small";

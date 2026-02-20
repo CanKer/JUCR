@@ -279,8 +279,18 @@ Details:
 - For missing/invalid header values, retry falls back to standard backoff behavior.
 - Added unit test that simulates `429 + Retry-After=1` twice, then success.
 
+#### B2.6 - `test(e2e): simulate 429 with Retry-After in fake ocm server`
+Status: `DONE`  
+Commits: `test(e2e): extend fake ocm server to simulate 429 with Retry-After`  
+Paths:
+- `src/fake-ocm-server.ts`
+
+Details:
+- Extended fake OCM server with `ratelimit` query param support.
+- `ratelimit=N` returns `429` with `Retry-After: 1` for the first `N` requests, then normal responses.
+- Keeps existing deterministic dataset behavior unchanged (`small`, `large`, `update`).
+
 Remaining Phase B items:
-- B2.6 `test(e2e): simulate 429 with Retry-After in fake ocm server`
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
 - B3.9 `feat(http): treat 4xx (except 429) as fatal errors`

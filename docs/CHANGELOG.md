@@ -252,6 +252,19 @@ Details:
 - Timeout aborts are classified as transient and retried by the HTTP retry policy.
 - Added unit coverage validating timeout retries followed by success.
 
+#### B2.5 (prerequisite) - `feat(retry): support custom delay for retry decisions`
+Status: `DONE`  
+Commits: `feat(retry): support custom delay (Retry-After) for retry decisions`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `tests/unit/retry.delay.test.ts`
+
+Details:
+- Extended retry decision contract to support both:
+- boolean (`true/false`) for backward compatibility.
+- object shape `{ retry: boolean; delayMs?: number }` for per-attempt custom delays.
+- Added tests validating custom delay wiring and compatibility behavior.
+
 Remaining Phase B items:
 - B2.5 `feat(http): respect Retry-After header for 429 responses`
 - B2.6 `test(e2e): simulate 429 with Retry-After in fake ocm server`

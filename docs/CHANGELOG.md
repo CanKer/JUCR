@@ -490,6 +490,30 @@ Details:
 - Updated `npm run dev` to run a build first and then execute `dist/src/server.js`.
 - Prevents runtime failure on clean environments where `dist/` has not been generated yet.
 
+### M2 - `test(coverage): raise branch coverage above 85%`
+Status: `DONE`  
+Commits: `test(coverage): raise branch coverage above 85 percent`  
+Paths:
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/limiter.test.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/mongo-poi-repository.test.ts`
+- `tests/unit/import.error-handler.test.ts`
+
+Details:
+- Added branch-targeted unit tests for:
+- invalid importer config guards (`pageSize`, `maxPages`, `startOffset`),
+- invalid limiter concurrency guard,
+- `transformPoi` valid/invalid timestamp handling branches,
+- Mongo repository early-return, cached-collection, and undefined-counter fallback branches,
+- error-handler paths for non-`Error` failure payloads.
+- Added critical wiring/request-shape tests for:
+- composition root dependency wiring and `finally` close behavior on success/failure,
+- importer env override propagation from composition root,
+- HTTP client path/query construction (`/poi`, `modifiedsince`, `dataset`) and non-array payload rejection.
+- Coverage result after changes (`npm run test:unit -- --coverage`):
+- `Branches: 87.35%` (target was `>= 85%`).
+
 ---
 
 ## PHASE C - Documentation & Professional Polish

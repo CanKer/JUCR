@@ -44,6 +44,20 @@ describe("import.error-handler", () => {
     }
   });
 
+  it("classifies non-Error transform failures as fatal with stringified message", () => {
+    const decision = classifyTransformFailure("boom", {
+      page: 1,
+      offset: 0,
+      index: 0
+    });
+
+    expect(decision.action).toBe("fail");
+    if (decision.action === "fail") {
+      expect(decision.error).toBeInstanceOf(ImportFatalError);
+      expect(decision.error.message).toContain("boom");
+    }
+  });
+
   it("wraps repository failures with context", () => {
     const error = wrapRepositoryFailure(new Error("write failed"), { page: 4, offset: 300 });
 
@@ -51,6 +65,14 @@ describe("import.error-handler", () => {
     expect(error.code).toBe("repository_write_failed");
     expect(error.message).toContain("write failed");
     expect(error.context).toEqual({ page: 4, offset: 300 });
+  });
+
+  it("wraps non-Error repository failures", () => {
+    const error = wrapRepositoryFailure("write failed", { page: 4, offset: 300 });
+
+    expect(error).toBeInstanceOf(ImportFatalError);
+    expect(error.code).toBe("repository_write_failed");
+    expect(error.message).toContain("write failed");
   });
 
   it("tracks summary totals and skipped counters", () => {

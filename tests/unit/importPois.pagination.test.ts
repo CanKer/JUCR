@@ -147,4 +147,43 @@ describe("importPois pagination", () => {
     expect(calls.map((call) => call.offset)).toEqual([0, 10, 20]);
     expect(batches.map((batch) => batch.length)).toEqual([10, 10, 10]);
   });
+
+  it("throws when pageSize is invalid", async () => {
+    const { client } = createPagedClient(10);
+    const { repo } = createCapturingRepo();
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, pageSize: 0 }
+      })
+    ).rejects.toThrow("pageSize must be an integer >= 1");
+  });
+
+  it("throws when maxPages is invalid", async () => {
+    const { client } = createPagedClient(10);
+    const { repo } = createCapturingRepo();
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, maxPages: 0 }
+      })
+    ).rejects.toThrow("maxPages must be an integer >= 1");
+  });
+
+  it("throws when startOffset is invalid", async () => {
+    const { client } = createPagedClient(10);
+    const { repo } = createCapturingRepo();
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, startOffset: -1 }
+      })
+    ).rejects.toThrow("startOffset must be an integer >= 0");
+  });
 });

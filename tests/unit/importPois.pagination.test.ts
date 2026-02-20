@@ -77,6 +77,21 @@ describe("importPois pagination", () => {
 
     expect(calls.map((call) => call.offset)).toEqual([0, 10, 20]);
     expect(batches.map((batch) => batch.length)).toEqual([10, 10]);
+
+    const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+      event: string;
+      total: number;
+      pagesProcessed: number;
+      skippedInvalid: number;
+      skippedByCode?: Record<string, number>;
+    };
+    expect(completion).toEqual({
+      event: "import.completed",
+      total: 20,
+      pagesProcessed: 2,
+      skippedInvalid: 0,
+      skippedByCode: {}
+    });
   });
 
   it("starts pagination at configured startOffset", async () => {

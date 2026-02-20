@@ -427,6 +427,17 @@ Details:
 - only one operation per repeated key is emitted.
 - latest payload wins for duplicate keys.
 
+#### B5.13 - `test(import): cover exact-multiple pageSize termination case`
+Status: `DONE`  
+Commits: `test(import): cover exact-multiple pageSize termination case`  
+Paths:
+- `tests/unit/importPois.pagination.test.ts`
+
+Details:
+- Added explicit assertions for the exact-multiple pagination edge case.
+- Verifies importer performs a trailing empty fetch (`offsets: [0, 10, 20]`) and persists only two non-empty pages.
+- Verifies completion summary remains correct (`total: 20`, `pagesProcessed: 2`, `skippedInvalid: 0`).
+
 #### B5.15 - `test(import): validate results unchanged across concurrency levels`
 Status: `DONE`  
 Commits: `test(import): validate concurrency invariance in import results`  

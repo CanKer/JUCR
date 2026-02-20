@@ -5,28 +5,38 @@ import { transformPoi } from "../../core/poi/transformPoi";
 import type { ImporterConfig } from "./importer.config";
 
 /**
- * Import use-case scaffold.
- * Next steps:
- * - define pagination strategy
- * - implement concurrency across pages
- * - bulk upsert to Mongo
+ * Imports POIs in pages and persists them using repository bulk upserts.
  */
 export const importPois = async (
   deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfig }
 ): Promise<void> => {
   const { client, repo, config } = deps;
   const limit = createLimiter(config.concurrency);
+  let offset = 0;
+  let total = 0;
 
-  // Placeholder: fetch a single page for now
-  const raw = await client.fetchPois({ limit: config.pageSize, offset: 0 });
+  while (true) {
+    const raw = await client.fetchPois({
+      limit: config.pageSize,
+      offset,
+      modifiedSince: config.modifiedSince,
+      dataset: config.dataset
+    });
 
-  // Transform concurrently (bounded)
-  const docs = await Promise.all(raw.map((r) => limit(async () => transformPoi(r))));
+    if (raw.length === 0) break;
 
-  // Persist
-  await repo.upsertMany(docs);
+    // Transform concurrently (bounded)
+    const docs = await Promise.all(raw.map((r) => limit(async () => transformPoi(r))));
 
-  // Minimal structured log
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify({ event: "import.completed", count: docs.length }));
+    // Persist
+    await repo.upsertMany(docs);
+
+    total += docs.length;
+    offset += raw.length;
+
+    // Last page
+    if (raw.length < config.pageSize) break;
+  }
+
+  console.log(JSON.stringify({ event: "import.completed", total }));
 };

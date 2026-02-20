@@ -11,6 +11,7 @@ import { defaultImporterConfig } from "../application/import-pois/importer.confi
   const repo = new MongoPoiRepository(env.MONGO_URI);
 
   await importPois({ client, repo, config: defaultImporterConfig });
+  await repo.close();
 })().catch((err) => {
   // eslint-disable-next-line no-console
   console.error(err);

@@ -10,15 +10,16 @@ import { URL } from "url";
  */
 const port = Number(process.env.FAKE_OCM_PORT ?? 3999);
 
-const makePoi = (id: number) => ({
+const makePoi = (id: number, titleSuffix: string) => ({
   ID: id,
   DateLastStatusUpdate: new Date().toISOString(),
-  AddressInfo: { Title: `POI ${id}` }
+  AddressInfo: { Title: `POI ${id}${titleSuffix}` }
 });
 
-const datasets: Record<string, number> = {
-  small: 25,
-  large: 1500
+const datasets: Record<string, { total: number; titleSuffix: string }> = {
+  small: { total: 25, titleSuffix: "" },
+  large: { total: 1500, titleSuffix: "" },
+  update: { total: 25, titleSuffix: " (updated)" }
 };
 
 const server = http.createServer((req, res) => {
@@ -28,15 +29,16 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
-  const dataset = url.searchParams.get("dataset") ?? "small";
-  const total = datasets[dataset] ?? datasets.small;
+  const datasetName = url.searchParams.get("dataset") ?? "small";
+  const dataset = datasets[datasetName] ?? datasets.small;
+  const total = dataset.total;
 
   const limit = Number(url.searchParams.get("limit") ?? "100");
   const offset = Number(url.searchParams.get("offset") ?? "0");
 
   const end = Math.min(total, offset + limit);
   const items = [];
-  for (let i = offset + 1; i <= end; i += 1) items.push(makePoi(i));
+  for (let i = offset + 1; i <= end; i += 1) items.push(makePoi(i, dataset.titleSuffix));
 
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify(items));

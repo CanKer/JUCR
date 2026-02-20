@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 module.exports = {
+  testTimeout: 30000,
   projects: [
     {
       displayName: "unit",
@@ -11,8 +12,7 @@ module.exports = {
       displayName: "e2e",
       testMatch: ["<rootDir>/tests/e2e/**/*.test.ts"],
       preset: "ts-jest",
-      testEnvironment: "node",
-      testTimeout: 30000
+      testEnvironment: "node"
     }
   ]
 };

@@ -1,6 +1,11 @@
 import type { OpenChargeMapClient, FetchPoisParams, RawPoi } from "../../ports/OpenChargeMapClient";
 import { retry } from "../../shared/retry/retry";
 
+type OcmRequestError = Error & {
+  status?: number;
+  body?: string;
+};
+
 /**
  * Minimal HTTP client scaffold using native fetch (Node 20).
  * The actual query params and pagination strategy will be implemented in subsequent commits.
@@ -19,6 +24,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
     if (params.limit != null) url.searchParams.set("limit", String(params.limit));
     if (params.offset != null) url.searchParams.set("offset", String(params.offset));
     if (params.modifiedSince) url.searchParams.set("modifiedsince", params.modifiedSince);
+    if (params.dataset) url.searchParams.set("dataset", params.dataset);
 
     const doFetch = async () => {
       const res = await fetch(url.toString(), {
@@ -29,7 +35,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
-        const err: any = new Error(`OCM request failed: ${res.status}`);
+        const err = new Error(`OCM request failed: ${res.status}`) as OcmRequestError;
         err.status = res.status;
         err.body = body;
         throw err;
@@ -47,7 +53,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
       minDelayMs: 250,
       maxDelayMs: 5000,
       shouldRetry: (err) => {
-        const status = (err as any)?.status;
+        const status = (err as OcmRequestError)?.status;
         return status === 429 || (typeof status === "number" && status >= 500) || status == null;
       }
     });

@@ -15,6 +15,11 @@ type PersistedPoi = {
   };
 };
 
+const identitySnapshot = (docs: PersistedPoi[]) =>
+  docs
+    .map((doc) => ({ externalId: doc.externalId, _id: doc._id }))
+    .sort((a, b) => a.externalId - b.externalId);
+
 const run = process.env.REQUIRE_MONGO_E2E === "1";
 
 (run ? describe : describe.skip)("importPois (mongo e2e)", () => {
@@ -51,10 +56,9 @@ const run = process.env.REQUIRE_MONGO_E2E === "1";
     });
 
     const pois = client.db(dbName).collection<PersistedPoi>(colName);
-    const countAfterFirstImport = await pois.countDocuments();
-    expect(countAfterFirstImport).toBe(25);
-    const firstExternalOne = await pois.findOne({ externalId: 1 });
-    expect(firstExternalOne?._id).toBeDefined();
+    const firstDocs = await pois.find().toArray();
+    expect(firstDocs).toHaveLength(25);
+    const firstIdentities = identitySnapshot(firstDocs);
 
     await importPois({
       client: ocm,
@@ -62,10 +66,9 @@ const run = process.env.REQUIRE_MONGO_E2E === "1";
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
     });
 
-    const countAfterSecondImport = await pois.countDocuments();
-    expect(countAfterSecondImport).toBe(25);
-    const secondExternalOne = await pois.findOne({ externalId: 1 });
-    expect(secondExternalOne?._id).toBe(firstExternalOne?._id);
+    const secondDocs = await pois.find().toArray();
+    expect(secondDocs).toHaveLength(25);
+    expect(identitySnapshot(secondDocs)).toEqual(firstIdentities);
 
     const duplicateExternalIds = await pois.aggregate([
       { $group: { _id: "$externalId", count: { $sum: 1 } } },

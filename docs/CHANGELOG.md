@@ -389,6 +389,19 @@ Details:
 - all other `4xx` responses are fatal and never retried.
 - Expanded unit coverage to include additional `4xx` statuses (`404`, `409`, `422`) and assert single-request behavior.
 
+### B4 - Idempotency proven (insert + reimport + update)
+
+#### B4.10 - `test(e2e): prove idempotent upserts (no duplicates on reimport)`
+Status: `DONE`  
+Commits: `test(e2e): strengthen idempotent reimport proof in Mongo e2e`  
+Paths:
+- `tests/e2e/importPois.e2e.test.ts`
+
+Details:
+- Strengthened Mongo e2e idempotency assertions for re-importing the same dataset.
+- Captures full identity snapshot (`externalId`, `_id`) after first import and verifies it is identical after second import.
+- Keeps duplicate detection by aggregation to ensure there are no repeated `externalId` documents.
+
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  
 Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
@@ -439,7 +452,6 @@ Details:
 - conceptual horizontal-scaling strategy for later phases.
 
 Remaining Phase B items:
-- B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
 
 ---

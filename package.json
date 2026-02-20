@@ -10,7 +10,7 @@
     "dev": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
     "test:e2e": "jest --selectProjects e2e",

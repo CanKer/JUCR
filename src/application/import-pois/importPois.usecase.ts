@@ -11,11 +11,23 @@ export const importPois = async (
   deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfig }
 ): Promise<void> => {
   const { client, repo, config } = deps;
-  const limit = createLimiter(config.concurrency);
-  let offset = 0;
-  let total = 0;
+  if (!Number.isInteger(config.pageSize) || config.pageSize < 1) {
+    throw new Error("pageSize must be an integer >= 1");
+  }
+  if (!Number.isInteger(config.maxPages) || config.maxPages < 1) {
+    throw new Error("maxPages must be an integer >= 1");
+  }
+  if (!Number.isInteger(config.startOffset) || config.startOffset < 0) {
+    throw new Error("startOffset must be an integer >= 0");
+  }
 
-  while (true) {
+  const limit = createLimiter(config.concurrency);
+  const maxPages = config.maxPages;
+  let offset = config.startOffset;
+  let total = 0;
+  let pagesProcessed = 0;
+
+  while (pagesProcessed < maxPages) {
     const raw = await client.fetchPois({
       limit: config.pageSize,
       offset,
@@ -31,6 +43,7 @@ export const importPois = async (
     // Persist
     await repo.upsertMany(docs);
 
+    pagesProcessed += 1;
     total += docs.length;
     offset += raw.length;
 
@@ -38,5 +51,5 @@ export const importPois = async (
     if (raw.length < config.pageSize) break;
   }
 
-  console.log(JSON.stringify({ event: "import.completed", total }));
+  console.log(JSON.stringify({ event: "import.completed", total, pagesProcessed }));
 };

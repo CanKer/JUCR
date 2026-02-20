@@ -102,4 +102,20 @@ describe("importPois (e2e)", () => {
 
     await repo.close();
   });
+
+  it("imports a dataset spanning more than three pages", async () => {
+    const ocm = new OpenChargeMapHttpClient(baseUrl, apiKey);
+    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
+    const pois = client.db(dbName).collection<PersistedPoi>(colName);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 300, concurrency: 10, dataset: "large" }
+    });
+
+    expect(await pois.countDocuments()).toBe(1500);
+
+    await repo.close();
+  });
 });

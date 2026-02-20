@@ -51,7 +51,7 @@ describe("importPois pagination", () => {
   });
 
   it("imports multiple pages and stops on partial last page", async () => {
-    const { client, calls } = createPagedClient(25);
+    const { client, calls } = createPagedClient(45);
     const { repo, batches } = createCapturingRepo();
 
     await importPois({
@@ -60,9 +60,9 @@ describe("importPois pagination", () => {
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 4 }
     });
 
-    expect(calls.map((call) => call.offset)).toEqual([0, 10, 20]);
-    expect(calls.map((call) => call.limit)).toEqual([10, 10, 10]);
-    expect(batches.map((batch) => batch.length)).toEqual([10, 10, 5]);
+    expect(calls.map((call) => call.offset)).toEqual([0, 10, 20, 30, 40]);
+    expect(calls.map((call) => call.limit)).toEqual([10, 10, 10, 10, 10]);
+    expect(batches.map((batch) => batch.length)).toEqual([10, 10, 10, 10, 5]);
   });
 
   it("handles exact-multiple totals by fetching one trailing empty page", async () => {
@@ -77,5 +77,59 @@ describe("importPois pagination", () => {
 
     expect(calls.map((call) => call.offset)).toEqual([0, 10, 20]);
     expect(batches.map((batch) => batch.length)).toEqual([10, 10]);
+  });
+
+  it("starts pagination at configured startOffset", async () => {
+    const { client, calls } = createPagedClient(25);
+    const { repo, batches } = createCapturingRepo();
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, startOffset: 10, concurrency: 3 }
+    });
+
+    expect(calls.map((call) => call.offset)).toEqual([10, 20]);
+    expect(batches.map((batch) => batch.length)).toEqual([10, 5]);
+  });
+
+  it("stops after maxPages even when more data is available", async () => {
+    const { client, calls } = createPagedClient(35);
+    const { repo, batches } = createCapturingRepo();
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, maxPages: 2, concurrency: 3 }
+    });
+
+    expect(calls.map((call) => call.offset)).toEqual([0, 10]);
+    expect(batches.map((batch) => batch.length)).toEqual([10, 10]);
+  });
+
+  it("does not loop forever when pages are always full and maxPages is reached", async () => {
+    const calls: FetchPoisParams[] = [];
+    const { repo, batches } = createCapturingRepo();
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async (params) => {
+        calls.push(params);
+        const limit = params.limit ?? 100;
+        const offset = params.offset ?? 0;
+        return Array.from({ length: limit }, (_, i) => ({
+          ID: offset + i + 1,
+          AddressInfo: { Title: `POI ${offset + i + 1}` }
+        }));
+      }
+    };
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, maxPages: 3, concurrency: 3 }
+    });
+
+    expect(calls.map((call) => call.offset)).toEqual([0, 10, 20]);
+    expect(batches.map((batch) => batch.length)).toEqual([10, 10, 10]);
   });
 });

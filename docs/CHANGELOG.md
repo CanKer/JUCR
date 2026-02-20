@@ -185,12 +185,46 @@ Details:
 
 ## PHASE B - Import Robustness (core of the challenge)
 
-Overall status: `TODO`  
+Overall status: `IN_PROGRESS`  
 Plan reference: `docs/ROADMAP.md` (PHASE B section)
 
-Pending items:
-- B1.1 `test(import): add multi-page pagination tests`
-- B1.2 `feat(import): add pagination controls (pageSize/maxPages/startOffset)`
+### B1 - Pagination completeness and controls
+
+#### B1.1 - `test(import): add multi-page pagination tests`
+Status: `DONE`  
+Commits: `ffc6c06`, `feat(import): add pagination controls (pageSize/maxPages/startOffset)` (amended)  
+Paths:
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/e2e/importPois.e2e.test.ts`
+
+Details:
+- Added focused unit tests for paginated imports across more than three pages.
+- Added explicit coverage for exact-multiple `pageSize` behavior (trailing empty fetch).
+- Added coverage for max-page cut-off and full-page responses to prevent infinite-loop regressions.
+- Added e2e coverage for a large dataset (`large`) to validate multi-page behavior end-to-end.
+
+#### B1.2 - `feat(import): add pagination controls (pageSize/maxPages/startOffset)`
+Status: `DONE`  
+Commits: `feat(import): add pagination controls (pageSize/maxPages/startOffset)` (amended)  
+Paths:
+- `src/application/import-pois/importer.config.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/e2e/importPois.e2e.test.ts`
+
+Details:
+- Added pagination controls:
+- `startOffset` to begin imports from a specific offset.
+- `maxPages` to cap page processing per run.
+- Added finite defaults (`startOffset: 0`, `maxPages: 1000`) to keep runs deterministic.
+- Import now stops when:
+- no items are returned,
+- a partial page is returned (`page.length < pageSize`),
+- processed pages reach `maxPages`.
+- Added config validation guards for invalid paging values.
+- Import completion log includes `pagesProcessed`.
+
+Remaining Phase B items:
 - B2.3 `test(http): add tests for retries on 429/5xx and network errors`
 - B2.4 `feat(http): implement timeout with AbortController`
 - B2.5 `feat(http): respect Retry-After header for 429 responses`
@@ -222,4 +256,3 @@ Pending items:
 - C6 `docs: add reliability and scalability notes (timeouts, fault tolerance)`
 - C7 `docs: describe graphql integration approach (conceptual)`
 - C8 `docs: describe monitoring and logging approach (conceptual)`
-

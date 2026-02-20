@@ -362,6 +362,19 @@ Details:
 - Verifies imported dataset equivalence by `externalId` and normalized payload snapshot.
 - Confirms import output remains deterministic across concurrency settings.
 
+#### B6.16 - `docs: add performance and scalability reasoning for importer`
+Status: `DONE`  
+Commits: `docs: add performance and scalability notes for importer`  
+Paths:
+- `docs/PERFORMANCE.md`
+
+Details:
+- Added a focused performance document covering:
+- why Mongo `bulkWrite` is used,
+- why in-batch dedupe exists,
+- `pageSize` and `concurrency` tradeoffs,
+- conceptual horizontal-scaling strategy for later phases.
+
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
@@ -369,7 +382,6 @@ Remaining Phase B items:
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
 - B5.14 `test(import): cover retry without Retry-After fallback backoff`
-- B6.16 `docs: add performance and scalability reasoning for importer`
 
 ---
 

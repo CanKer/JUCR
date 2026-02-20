@@ -563,6 +563,27 @@ Details:
 - and must use `http` or `https` scheme.
 - Added unit tests for valid and invalid `OCM_BASE_URL` inputs.
 
+### M6 - `chore(testing): add local e2e wrapper with docker lifecycle automation`
+Status: `DONE`  
+Commits: `chore(testing): add local e2e wrapper with docker lifecycle automation`  
+Paths:
+- `scripts/test-e2e-local.sh`
+- `package.json`
+- `README.md`
+- `docs/ROADMAP.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added `scripts/test-e2e-local.sh` to automate local Mongo-backed E2E execution.
+- Wrapper behavior:
+- detects whether Docker daemon is available (optionally attempts Docker Desktop start on macOS),
+- reuses running Mongo when available, otherwise starts `docker compose` service `mongo`,
+- builds project, starts fake OCM server, runs E2E with `REQUIRE_MONGO_E2E=1`,
+- always performs cleanup and stops Mongo only when it was started by the wrapper.
+- Added npm command `npm run test:e2e:local`.
+- Updated README with usage and environment overrides for local E2E automation.
+- Added roadmap tracking entry under `Maintenance Track (Post-Phase D)`.
+
 ---
 
 ## PHASE C - Documentation & Professional Polish

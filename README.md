@@ -20,6 +20,7 @@ docker compose up -d
 npm run lint
 npm run typecheck
 npm run test:unit
+npm run test:e2e:local
 ```
 
 ## Local Import Run
@@ -48,6 +49,7 @@ node dist/src/cli/import.js
 - `npm run typecheck` - TypeScript no-emit check
 - `npm run test:unit` - unit tests
 - `npm run test:e2e` - E2E tests (requires MongoDB and fake OCM server running)
+- `npm run test:e2e:local` - local E2E wrapper (starts Mongo if needed, runs fake OCM + E2E, cleans up resources it started)
 - `npm run start:fake-ocm` - start local fake OpenChargeMap server
 
 ## Environment Variables
@@ -71,6 +73,29 @@ CI pipeline steps:
 5. Unit tests
 6. Start fake OCM server
 7. Run E2E tests against Mongo service
+
+## Local E2E Automation
+
+Run:
+
+```bash
+npm run test:e2e:local
+```
+
+Behavior:
+- Reuses existing `docker compose` Mongo service when already running.
+- Starts `mongo` service automatically when not running.
+- Starts fake OCM server automatically.
+- Runs E2E with `REQUIRE_MONGO_E2E=1`.
+- Stops fake OCM and stops Mongo only if Mongo was started by the script.
+
+Optional env vars:
+- `AUTO_START_DOCKER=1|0` (default: `1` on macOS attempts `open -a Docker` if daemon is down)
+- `MONGO_SERVICE` (default: `mongo`)
+- `MONGO_URI` (default: `mongodb://127.0.0.1:27017/jucr`)
+- `FAKE_OCM_PORT` (default: `3999`)
+- `OCM_BASE_URL` (default: `http://127.0.0.1:3999`)
+- `OCM_API_KEY` (default: `test`)
 
 ## Notes
 

@@ -67,3 +67,11 @@ Use small, meaningful commits (Conventional Commits). Each commit should keep th
 6. `docs: add reliability and scalability notes (timeouts, fault tolerance)`
 7. `docs: describe graphql integration approach (conceptual)`
 8. `docs: describe monitoring and logging approach (conceptual)`
+
+---
+
+## FASE D — Runtime Safety, Sanitized Logging, and Scaling Notes
+
+1. `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
+2. `feat(logging): sanitize logs to avoid raw payload leakage`
+3. `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`

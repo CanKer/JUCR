@@ -3,6 +3,7 @@ import type { PoiRepository } from "../../ports/PoiRepository";
 import { createLimiter } from "../../shared/concurrency/limiter";
 import { transformPoi } from "../../core/poi/transformPoi";
 import type { ImporterConfig } from "./importer.config";
+import { validateImporterConfig } from "./importer.config";
 import {
   classifyTransformFailure,
   createImportRunSummaryTracker,
@@ -15,16 +16,8 @@ import {
 export const importPois = async (
   deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfig }
 ): Promise<void> => {
-  const { client, repo, config } = deps;
-  if (!Number.isInteger(config.pageSize) || config.pageSize < 1) {
-    throw new Error("pageSize must be an integer >= 1");
-  }
-  if (!Number.isInteger(config.maxPages) || config.maxPages < 1) {
-    throw new Error("maxPages must be an integer >= 1");
-  }
-  if (!Number.isInteger(config.startOffset) || config.startOffset < 0) {
-    throw new Error("startOffset must be an integer >= 0");
-  }
+  const { client, repo } = deps;
+  const config = validateImporterConfig(deps.config);
 
   const limit = createLimiter(config.concurrency);
   const maxPages = config.maxPages;

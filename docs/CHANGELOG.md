@@ -546,3 +546,38 @@ Pending items:
 - C6 `docs: add reliability and scalability notes (timeouts, fault tolerance)`
 - C7 `docs: describe graphql integration approach (conceptual)`
 - C8 `docs: describe monitoring and logging approach (conceptual)`
+
+---
+
+## PHASE D - Runtime Safety, Sanitized Logging, and Scaling Strategy
+
+Overall status: `IN_PROGRESS`  
+Plan reference: `docs/ROADMAP.md` (PHASE D section)
+
+### D1 - `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
+Status: `DONE`  
+Commits: `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`  
+Paths:
+- `src/application/import-pois/importer.config.ts`
+- `src/shared/config/runtime.config.ts`
+- `src/composition/root.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `tests/unit/runtime.config.test.ts`
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/composition.root.test.ts`
+- `docs/ROADMAP.md`
+
+Details:
+- Added hard caps for runtime safety:
+- `concurrency [1..50]`
+- `pageSize [1..500]`
+- `maxPages [1..100000]`
+- `timeoutMs [1000..30000]`
+- Centralized runtime/env cap enforcement in `loadRuntimeConfigFromEnv()`.
+- Centralized importer config validation in `validateImporterConfig()`.
+- Validation failures now include both invalid value and allowed range.
+- Added unit tests for boundary-valid values and out-of-range failures.
+
+Pending Phase D items:
+- D2 `feat(logging): sanitize logs to avoid raw payload leakage`
+- D3 `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`

@@ -124,4 +124,29 @@ describe("composition root", () => {
     await expect(runImport()).rejects.toThrow("import failed");
     expect(close).toHaveBeenCalledTimes(1);
   });
+
+  it("fails fast when runtime caps are violated", async () => {
+    process.env = {
+      ...envSnapshot,
+      IMPORT_CONCURRENCY: "999"
+    };
+
+    const loadEnv = jest.fn().mockReturnValue({
+      MONGO_URI: "mongodb://localhost:27017/jucr",
+      OCM_API_KEY: "test-key",
+      OCM_BASE_URL: "http://localhost:3999"
+    });
+
+    jest.doMock("../../src/shared/config/env", () => ({ loadEnv }));
+    jest.doMock("../../src/application/import-pois/importPois.usecase", () => ({ importPois: jest.fn() }));
+    jest.doMock("../../src/infrastructure/mongo/MongoPoiRepository", () => ({
+      MongoPoiRepository: jest.fn().mockImplementation(() => ({ close: jest.fn() }))
+    }));
+    jest.doMock("../../src/infrastructure/openchargemap/OpenChargeMapHttpClient", () => ({
+      OpenChargeMapHttpClient: jest.fn().mockImplementation(() => ({}))
+    }));
+
+    const { runImport } = await import("../../src/composition/root");
+    await expect(runImport()).rejects.toThrow("IMPORT_CONCURRENCY=999 is out of allowed range [1..50]");
+  });
 });

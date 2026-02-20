@@ -158,7 +158,7 @@ describe("importPois pagination", () => {
         repo,
         config: { ...defaultImporterConfig, pageSize: 0 }
       })
-    ).rejects.toThrow("pageSize must be an integer >= 1");
+    ).rejects.toThrow("pageSize=0 is out of allowed range [1..500]");
   });
 
   it("throws when maxPages is invalid", async () => {
@@ -171,7 +171,7 @@ describe("importPois pagination", () => {
         repo,
         config: { ...defaultImporterConfig, maxPages: 0 }
       })
-    ).rejects.toThrow("maxPages must be an integer >= 1");
+    ).rejects.toThrow("maxPages=0 is out of allowed range [1..100000]");
   });
 
   it("throws when startOffset is invalid", async () => {
@@ -184,6 +184,6 @@ describe("importPois pagination", () => {
         repo,
         config: { ...defaultImporterConfig, startOffset: -1 }
       })
-    ).rejects.toThrow("startOffset must be an integer >= 0");
+    ).rejects.toThrow(`startOffset=-1 is out of allowed range [0..${Number.MAX_SAFE_INTEGER}]`);
   });
 });

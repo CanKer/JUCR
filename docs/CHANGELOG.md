@@ -290,6 +290,19 @@ Details:
 - `ratelimit=N` returns `429` with `Retry-After: 1` for the first `N` requests, then normal responses.
 - Keeps existing deterministic dataset behavior unchanged (`small`, `large`, `update`).
 
+#### B2.7 - `test(e2e): verify importer succeeds after transient 429 and 5xx`
+Status: `DONE`  
+Commits: `test(e2e): verify importer succeeds after transient 429 and 5xx`  
+Paths:
+- `src/fake-ocm-server.ts`
+- `tests/e2e/importPois.e2e.test.ts`
+
+Details:
+- Added fake server support for `fail500=N` to emit transient `500` responses.
+- Added e2e test proving importer recovers after `429` transient failures with `Retry-After`.
+- Added e2e test proving importer recovers after transient `500` failures.
+- Both tests assert import completion and expected Mongo document count.
+
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`

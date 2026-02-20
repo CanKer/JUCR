@@ -23,6 +23,7 @@ const datasets: Record<string, { total: number; titleSuffix: string }> = {
 };
 
 let rateLimitedResponses = 0;
+let failed500Responses = 0;
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${port}`);
@@ -39,6 +40,13 @@ const server = http.createServer((req, res) => {
       "Retry-After": "1"
     });
     return res.end(JSON.stringify({ error: "rate_limited" }));
+  }
+
+  const fail500 = Number(url.searchParams.get("fail500") ?? "0");
+  if (Number.isFinite(fail500) && fail500 > 0 && failed500Responses < fail500) {
+    failed500Responses += 1;
+    res.writeHead(500, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: "temporary_server_failure" }));
   }
 
   const datasetName = url.searchParams.get("dataset") ?? "small";

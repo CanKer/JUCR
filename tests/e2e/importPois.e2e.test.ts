@@ -118,4 +118,36 @@ describe("importPois (e2e)", () => {
 
     await repo.close();
   });
+
+  it("recovers from transient 429 responses with Retry-After", async () => {
+    const ocm = new OpenChargeMapHttpClient(`${baseUrl}?ratelimit=2`, apiKey);
+    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
+    const pois = client.db(dbName).collection<PersistedPoi>(colName);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
+    });
+
+    expect(await pois.countDocuments()).toBe(25);
+
+    await repo.close();
+  });
+
+  it("recovers from transient 500 responses", async () => {
+    const ocm = new OpenChargeMapHttpClient(`${baseUrl}?fail500=2`, apiKey);
+    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
+    const pois = client.db(dbName).collection<PersistedPoi>(colName);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
+    });
+
+    expect(await pois.countDocuments()).toBe(25);
+
+    await repo.close();
+  });
 });

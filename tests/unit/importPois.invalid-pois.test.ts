@@ -73,4 +73,24 @@ describe("importPois invalid POI handling", () => {
       skippedInvalid: 2
     });
   });
+
+  it("fails the import for non-POI-validation errors", async () => {
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => [{ ID: 1, AddressInfo: { Title: "POI 1" } }]
+    };
+
+    const repo: PoiRepository = {
+      upsertMany: async () => {
+        throw new Error("mongo write failed");
+      }
+    };
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, pageSize: 10, concurrency: 2 }
+      })
+    ).rejects.toThrow("mongo write failed");
+  });
 });

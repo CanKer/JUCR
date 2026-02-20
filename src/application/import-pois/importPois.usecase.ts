@@ -1,7 +1,7 @@
 import type { OpenChargeMapClient } from "../../ports/OpenChargeMapClient";
 import type { PoiRepository } from "../../ports/PoiRepository";
 import { createLimiter } from "../../shared/concurrency/limiter";
-import { transformPoi } from "../../core/poi/transformPoi";
+import { InvalidPoiError, transformPoi } from "../../core/poi/transformPoi";
 import type { ImporterConfig } from "./importer.config";
 
 /**
@@ -43,11 +43,10 @@ export const importPois = async (
     const docs = transformed.flatMap((result) => {
       if (result.status === "fulfilled") return [result.value];
 
-      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
-      if (/invalid poi/i.test(message)) {
+      if (result.reason instanceof InvalidPoiError) {
         skippedInvalid += 1;
         // eslint-disable-next-line no-console
-        console.warn(JSON.stringify({ event: "import.poi_skipped", reason: message }));
+        console.warn(JSON.stringify({ event: "import.poi_skipped", reason: result.reason.message }));
         return [];
       }
       throw result.reason;

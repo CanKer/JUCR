@@ -350,6 +350,22 @@ Details:
 - Verifies importer skips invalid items and persists remaining valid items.
 - Verifies importer continues on subsequent pages and reports `skippedInvalid` in completion log.
 
+#### B3.8 - `feat(import): classify errors and handle invalid POIs without failing job`
+Status: `DONE`  
+Commits: `feat(import): classify invalid POI errors and keep partial progress`  
+Paths:
+- `src/core/poi/transformPoi.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+
+Details:
+- Introduced `InvalidPoiError` in POI transformation for explicit validation-error typing.
+- Import use case now classifies transform failures by error type:
+- `InvalidPoiError` is skipped and counted (`skippedInvalid`).
+- non-validation errors are rethrown to fail fast.
+- Added tests to cover typed invalid-id failures and to ensure non-validation failures (for example persistence failures) still fail the import.
+
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  
 Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
@@ -389,7 +405,6 @@ Details:
 - conceptual horizontal-scaling strategy for later phases.
 
 Remaining Phase B items:
-- B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
 - B3.9 `feat(http): treat 4xx (except 429) as fatal errors`
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`

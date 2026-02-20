@@ -12,12 +12,23 @@ export type RetryOptions = {
   shouldRetry: (err: unknown) => RetryDecision;
   onRetry?: (ctx: { attempt: number; maxAttempts: number; delayMs: number; error: unknown }) => void;
   onGiveUp?: (ctx: { attempt: number; maxAttempts: number; error: unknown }) => void;
+  randomFn?: () => number;
+  jitterRatio?: number;
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const retry = async <T>(fn: () => Promise<T>, opts: RetryOptions): Promise<T> => {
-  const { retries, minDelayMs, maxDelayMs, shouldRetry, onRetry, onGiveUp } = opts;
+  const {
+    retries,
+    minDelayMs,
+    maxDelayMs,
+    shouldRetry,
+    onRetry,
+    onGiveUp,
+    randomFn = Math.random,
+    jitterRatio = 0.2
+  } = opts;
 
   let attempt = 0;
   const maxAttempts = retries + 1;
@@ -41,7 +52,8 @@ export const retry = async <T>(fn: () => Promise<T>, opts: RetryOptions): Promis
           ? Math.max(0, normalized.delayMs)
           : Math.min(maxDelayMs, minDelayMs * Math.pow(2, attempt));
       // small jitter to avoid thundering herd (still deterministic-ish)
-      const jitter = Math.floor(backoff * 0.2 * Math.random());
+      const normalizedJitterRatio = Math.min(1, Math.max(0, jitterRatio));
+      const jitter = Math.floor(backoff * normalizedJitterRatio * randomFn());
       const waitMs = backoff + jitter;
       onRetry?.({ attempt: attempt + 1, maxAttempts, delayMs: waitMs, error: err });
       await sleep(waitMs);

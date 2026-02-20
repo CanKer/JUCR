@@ -544,6 +544,25 @@ Details:
 - idempotent writes do not prevent duplicate upstream requests,
 - and do not replace partition leasing/distributed rate limiting for multi-worker execution.
 
+### M5 - `fix(hardening): make retry jitter testable and validate OCM_BASE_URL scheme`
+Status: `DONE`  
+Commits: `fix(hardening): make retry jitter testable and validate OCM_BASE_URL scheme`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `tests/unit/retry.delay.test.ts`
+- `src/shared/config/env.ts`
+- `tests/unit/env.config.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added optional `randomFn` and `jitterRatio` in retry utility to make delay behavior deterministic in timing-sensitive tests.
+- Preserved existing runtime behavior with defaults (`Math.random`, `0.2` jitter ratio).
+- Added unit coverage validating deterministic retry-delay behavior when jitter is disabled/configured.
+- Hardened `loadEnv()` validation for `OCM_BASE_URL`:
+- must be an absolute URL,
+- and must use `http` or `https` scheme.
+- Added unit tests for valid and invalid `OCM_BASE_URL` inputs.
+
 ---
 
 ## PHASE C - Documentation & Professional Polish

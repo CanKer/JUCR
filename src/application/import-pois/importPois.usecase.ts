@@ -1,8 +1,13 @@
 import type { OpenChargeMapClient } from "../../ports/OpenChargeMapClient";
 import type { PoiRepository } from "../../ports/PoiRepository";
 import { createLimiter } from "../../shared/concurrency/limiter";
-import { InvalidPoiError, transformPoi } from "../../core/poi/transformPoi";
+import { transformPoi } from "../../core/poi/transformPoi";
 import type { ImporterConfig } from "./importer.config";
+import {
+  classifyTransformFailure,
+  createImportRunSummaryTracker,
+  wrapRepositoryFailure
+} from "./import.error-handler";
 
 /**
  * Imports POIs in pages and persists them using repository bulk upserts.
@@ -24,11 +29,10 @@ export const importPois = async (
   const limit = createLimiter(config.concurrency);
   const maxPages = config.maxPages;
   let offset = config.startOffset;
-  let total = 0;
-  let pagesProcessed = 0;
-  let skippedInvalid = 0;
+  const summaryTracker = createImportRunSummaryTracker();
 
-  while (pagesProcessed < maxPages) {
+  while (summaryTracker.pagesProcessed() < maxPages) {
+    const currentPage = summaryTracker.nextPageNumber();
     const raw = await client.fetchPois({
       limit: config.pageSize,
       offset,
@@ -40,30 +44,38 @@ export const importPois = async (
 
     // Transform concurrently (bounded), skipping invalid POIs without failing whole page.
     const transformed = await Promise.allSettled(raw.map((r) => limit(async () => transformPoi(r))));
-    const docs = transformed.flatMap((result) => {
-      if (result.status === "fulfilled") return [result.value];
+    const docs = transformed.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return [result.value];
+      }
 
-      if (result.reason instanceof InvalidPoiError) {
-        skippedInvalid += 1;
+      const decision = classifyTransformFailure(result.reason, { page: currentPage, offset, index });
+      if (decision.action === "skip") {
+        summaryTracker.addSkipped(decision.code);
         // eslint-disable-next-line no-console
-        console.warn(JSON.stringify({ event: "import.poi_skipped", reason: result.reason.message }));
+        console.warn(JSON.stringify(decision.log));
         return [];
       }
-      throw result.reason;
+
+      throw decision.error;
     });
 
     // Persist
     if (docs.length > 0) {
-      await repo.upsertMany(docs);
+      try {
+        await repo.upsertMany(docs);
+      } catch (error) {
+        throw wrapRepositoryFailure(error, { page: currentPage, offset });
+      }
     }
 
-    pagesProcessed += 1;
-    total += docs.length;
+    summaryTracker.addProcessedPage();
+    summaryTracker.addImported(docs.length);
     offset += raw.length;
 
     // Last page
     if (raw.length < config.pageSize) break;
   }
 
-  console.log(JSON.stringify({ event: "import.completed", total, pagesProcessed, skippedInvalid }));
+  console.log(JSON.stringify({ event: "import.completed", ...summaryTracker.summary() }));
 };

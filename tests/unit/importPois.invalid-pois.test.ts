@@ -65,12 +65,14 @@ describe("importPois invalid POI handling", () => {
       total: number;
       pagesProcessed: number;
       skippedInvalid: number;
+      skippedByCode?: { invalid_poi?: number };
     };
     expect(completion).toEqual({
       event: "import.completed",
       total: 3,
       pagesProcessed: 2,
-      skippedInvalid: 2
+      skippedInvalid: 2,
+      skippedByCode: { invalid_poi: 2 }
     });
   });
 

@@ -352,19 +352,29 @@ Details:
 
 #### B3.8 - `feat(import): classify errors and handle invalid POIs without failing job`
 Status: `DONE`  
-Commits: `feat(import): classify invalid POI errors and keep partial progress`  
+Commits: `feat(import): classify invalid POI errors and keep partial progress`, `feat(import): add structured error handler for robust partial-failure handling`  
 Paths:
+- `src/application/import-pois/import.error-handler.ts`
 - `src/core/poi/transformPoi.ts`
 - `src/application/import-pois/importPois.usecase.ts`
+- `tests/unit/import.error-handler.test.ts`
 - `tests/unit/transformPoi.test.ts`
 - `tests/unit/importPois.invalid-pois.test.ts`
 
 Details:
 - Introduced `InvalidPoiError` in POI transformation for explicit validation-error typing.
-- Import use case now classifies transform failures by error type:
+- Added dedicated import error-handler module with:
+- typed failure/skip codes,
+- structured skip log payloads with page/offset/item context,
+- fatal error wrappers for transform/repository failures,
+- run-summary tracker for processed/skipped counters.
+- Import use case classifies transform failures by error type:
 - `InvalidPoiError` is skipped and counted (`skippedInvalid`).
 - non-validation errors are rethrown to fail fast.
-- Added tests to cover typed invalid-id failures and to ensure non-validation failures (for example persistence failures) still fail the import.
+- Added tests to cover:
+- typed invalid-id failures,
+- non-validation failures still failing the import,
+- error-handler classification/wrapping behavior in isolation.
 
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  

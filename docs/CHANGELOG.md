@@ -478,6 +478,20 @@ Remaining Phase B items:
 
 ---
 
+## Maintenance Fixes
+
+### M1 - `fix(scripts): make dev script build before running dist server`
+Status: `DONE`  
+Commits: `fix(scripts): make dev script build before running dist server`  
+Paths:
+- `package.json`
+
+Details:
+- Updated `npm run dev` to run a build first and then execute `dist/src/server.js`.
+- Prevents runtime failure on clean environments where `dist/` has not been generated yet.
+
+---
+
 ## PHASE C - Documentation & Professional Polish
 
 Overall status: `TODO`  

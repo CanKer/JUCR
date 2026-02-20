@@ -15,9 +15,9 @@ type PersistedPoi = {
   };
 };
 
-const describeMongo = process.env.REQUIRE_MONGO_E2E === "1" ? describe : describe.skip;
+const run = process.env.REQUIRE_MONGO_E2E === "1";
 
-describeMongo("importPois (mongo e2e)", () => {
+(run ? describe : describe.skip)("importPois (mongo e2e)", () => {
   const mongoUri = process.env.MONGO_URI ?? "mongodb://127.0.0.1:27017/jucr";
   const dbName = "jucr";
   const colName = "pois";

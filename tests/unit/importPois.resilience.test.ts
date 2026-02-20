@@ -1,72 +1,13 @@
-import http from "http";
-import type { AddressInfo } from "net";
+import type { OpenChargeMapClient, FetchPoisParams, RawPoi } from "../../src/ports/OpenChargeMapClient";
 import type { PoiDoc, PoiRepository } from "../../src/ports/PoiRepository";
-import { OpenChargeMapHttpClient } from "../../src/infrastructure/openchargemap/OpenChargeMapHttpClient";
+import { retry } from "../../src/shared/retry/retry";
 import { importPois } from "../../src/application/import-pois/importPois.usecase";
 import { defaultImporterConfig } from "../../src/application/import-pois/importer.config";
 
-type TestServer = {
-  baseUrl: string;
-  getRequestCount: () => number;
-  close: () => Promise<void>;
-};
-
-const startOcmLikeServer = async (opts: { total: number; ratelimit?: number; fail500?: number }): Promise<TestServer> => {
-  let requestCount = 0;
-  let rateLimitedResponses = 0;
-  let failed500Responses = 0;
-
-  const server = http.createServer((req, res) => {
-    const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    if (url.pathname !== "/poi") {
-      res.writeHead(404);
-      res.end();
-      return;
-    }
-
-    requestCount += 1;
-
-    const rateLimit = opts.ratelimit ?? 0;
-    if (rateLimitedResponses < rateLimit) {
-      rateLimitedResponses += 1;
-      res.writeHead(429, { "content-type": "application/json", "Retry-After": "1" });
-      res.end(JSON.stringify({ error: "rate_limited" }));
-      return;
-    }
-
-    const fail500 = opts.fail500 ?? 0;
-    if (failed500Responses < fail500) {
-      failed500Responses += 1;
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "temporary_server_failure" }));
-      return;
-    }
-
-    const limit = Number(url.searchParams.get("limit") ?? "100");
-    const offset = Number(url.searchParams.get("offset") ?? "0");
-    const end = Math.min(opts.total, offset + limit);
-    const items = [];
-    for (let id = offset + 1; id <= end; id += 1) {
-      items.push({ ID: id, AddressInfo: { Title: `POI ${id}` } });
-    }
-
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(items));
-  });
-
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", () => resolve());
-  });
-
-  const address = server.address() as AddressInfo;
-  return {
-    baseUrl: `http://127.0.0.1:${address.port}`,
-    getRequestCount: () => requestCount,
-    close: () =>
-      new Promise<void>((resolve, reject) => {
-        server.close((err) => (err ? reject(err) : resolve()));
-      })
-  };
+type SimulatedClientError = Error & {
+  status?: number;
+  isTimeout?: boolean;
+  retryDelayMs?: number;
 };
 
 const createInMemoryUpsertRepo = () => {
@@ -90,6 +31,84 @@ const createInMemoryUpsertRepo = () => {
   return { repo, docsByExternalId };
 };
 
+const createRetryingFakeClient = (opts: {
+  total: number;
+  ratelimit?: number;
+  fail500?: number;
+  timeoutFailures?: number;
+}) => {
+  let requestAttempts = 0;
+  let emitted429 = 0;
+  let emitted500 = 0;
+  let emittedTimeouts = 0;
+  const calls: FetchPoisParams[] = [];
+
+  const fetchPage = async (params: FetchPoisParams): Promise<RawPoi[]> => {
+    requestAttempts += 1;
+
+    if (emitted429 < (opts.ratelimit ?? 0)) {
+      emitted429 += 1;
+      const err = new Error("rate limited") as SimulatedClientError;
+      err.status = 429;
+      err.retryDelayMs = 1;
+      throw err;
+    }
+
+    if (emitted500 < (opts.fail500 ?? 0)) {
+      emitted500 += 1;
+      const err = new Error("temporary server failure") as SimulatedClientError;
+      err.status = 500;
+      throw err;
+    }
+
+    if (emittedTimeouts < (opts.timeoutFailures ?? 0)) {
+      emittedTimeouts += 1;
+      const err = new Error("timeout") as SimulatedClientError;
+      err.isTimeout = true;
+      throw err;
+    }
+
+    const offset = params.offset ?? 0;
+    const limit = params.limit ?? 100;
+    const end = Math.min(opts.total, offset + limit);
+    const page: RawPoi[] = [];
+
+    for (let id = offset + 1; id <= end; id += 1) {
+      page.push({ ID: id, AddressInfo: { Title: `POI ${id}` } });
+    }
+
+    return page;
+  };
+
+  const client: OpenChargeMapClient = {
+    fetchPois: async (params) => {
+      calls.push(params);
+      return retry(
+        () => fetchPage(params),
+        {
+          retries: 5,
+          minDelayMs: 1,
+          maxDelayMs: 5,
+          shouldRetry: (error) => {
+            const err = error as SimulatedClientError;
+            if (err.isTimeout) return true;
+            if (err.status === 429) return { retry: true, delayMs: err.retryDelayMs };
+            if (typeof err.status === "number" && err.status >= 500) return true;
+            if (typeof err.status === "number") return false;
+            return true;
+          }
+        }
+      );
+    }
+  };
+
+  return {
+    client,
+    getRequestAttempts: () => requestAttempts,
+    getCalls: () => calls.slice()
+  };
+};
+
 describe("importPois resilience without Mongo dependency", () => {
   let logSpy: jest.SpyInstance;
 
@@ -102,9 +121,8 @@ describe("importPois resilience without Mongo dependency", () => {
   });
 
   it("imports a dataset spanning more than three pages", async () => {
-    const server = await startOcmLikeServer({ total: 45 });
+    const { client, getCalls } = createRetryingFakeClient({ total: 45 });
     const { repo, docsByExternalId } = createInMemoryUpsertRepo();
-    const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
 
     await importPois({
       client,
@@ -113,15 +131,12 @@ describe("importPois resilience without Mongo dependency", () => {
     });
 
     expect(docsByExternalId.size).toBe(45);
-    expect(server.getRequestCount()).toBeGreaterThan(3);
-
-    await server.close();
+    expect(getCalls().length).toBe(5);
   });
 
   it("recovers from transient 429 responses with Retry-After", async () => {
-    const server = await startOcmLikeServer({ total: 25, ratelimit: 2 });
+    const { client, getRequestAttempts } = createRetryingFakeClient({ total: 25, ratelimit: 2 });
     const { repo, docsByExternalId } = createInMemoryUpsertRepo();
-    const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
 
     await importPois({
       client,
@@ -130,14 +145,12 @@ describe("importPois resilience without Mongo dependency", () => {
     });
 
     expect(docsByExternalId.size).toBe(25);
-
-    await server.close();
+    expect(getRequestAttempts()).toBe(5);
   });
 
   it("recovers from transient 500 responses", async () => {
-    const server = await startOcmLikeServer({ total: 25, fail500: 2 });
+    const { client, getRequestAttempts } = createRetryingFakeClient({ total: 25, fail500: 2 });
     const { repo, docsByExternalId } = createInMemoryUpsertRepo();
-    const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
 
     await importPois({
       client,
@@ -146,7 +159,20 @@ describe("importPois resilience without Mongo dependency", () => {
     });
 
     expect(docsByExternalId.size).toBe(25);
+    expect(getRequestAttempts()).toBe(5);
+  });
 
-    await server.close();
+  it("recovers from transient timeout failures", async () => {
+    const { client, getRequestAttempts } = createRetryingFakeClient({ total: 25, timeoutFailures: 2 });
+    const { repo, docsByExternalId } = createInMemoryUpsertRepo();
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5 }
+    });
+
+    expect(docsByExternalId.size).toBe(25);
+    expect(getRequestAttempts()).toBe(5);
   });
 });

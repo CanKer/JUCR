@@ -313,10 +313,29 @@ Paths:
 
 Details:
 - Moved resilience and multi-page coverage (`429`, `500`, and >3 pages) to non-Mongo tests using in-memory repository doubles.
+- Reworked resilience tests to use a retrying fake client (no local HTTP sockets) that simulates `429`, `500`, and timeout failures.
+- Added assertions for retry attempt counts and final import results.
 - Kept Mongo e2e focused on persistence semantics (idempotent upsert and updates).
-- Guarded Mongo e2e execution behind `REQUIRE_MONGO_E2E=1`.
+- Guarded Mongo e2e execution behind:
+- `const run = process.env.REQUIRE_MONGO_E2E === "1";`
+- `(run ? describe : describe.skip)(...)`
 - Enabled that flag in CI so full integration checks still run in pipeline.
 - Improves local test reliability while preserving integration confidence in CI.
+
+#### B2.9 - `feat(di): add composition root and wire cli through manual DI`
+Status: `DONE`  
+Commits: `feat(di): add composition root and wire cli through manual DI`  
+Paths:
+- `src/composition/root.ts`
+- `src/cli/import.ts`
+
+Details:
+- Added a manual composition root that centralizes importer wiring in one place.
+- `runImport()` loads env values, builds `OpenChargeMapHttpClient`, builds `MongoPoiRepository`, resolves importer config, executes import, and always closes the repository in `finally`.
+- Added optional env overrides for importer behavior:
+- `IMPORT_CONCURRENCY`, `IMPORT_PAGE_SIZE`, `IMPORT_MAX_PAGES`, `IMPORT_START_OFFSET`
+- `IMPORT_DATASET`, `IMPORT_MODIFIED_SINCE`, `OCM_TIMEOUT_MS`
+- Refactored CLI entrypoint into a thin runner that only executes `runImport()` and keeps process-level error handling.
 
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`

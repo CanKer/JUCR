@@ -15,7 +15,14 @@ type PersistedPoi = {
   };
 };
 
-describe("importPois (e2e)", () => {
+const identitySnapshot = (docs: PersistedPoi[]) =>
+  docs
+    .map((doc) => ({ externalId: doc.externalId, _id: doc._id }))
+    .sort((a, b) => a.externalId - b.externalId);
+
+const run = process.env.REQUIRE_MONGO_E2E === "1";
+
+(run ? describe : describe.skip)("importPois (mongo e2e)", () => {
   const mongoUri = process.env.MONGO_URI ?? "mongodb://127.0.0.1:27017/jucr";
   const dbName = "jucr";
   const colName = "pois";
@@ -49,10 +56,9 @@ describe("importPois (e2e)", () => {
     });
 
     const pois = client.db(dbName).collection<PersistedPoi>(colName);
-    const countAfterFirstImport = await pois.countDocuments();
-    expect(countAfterFirstImport).toBe(25);
-    const firstExternalOne = await pois.findOne({ externalId: 1 });
-    expect(firstExternalOne?._id).toBeDefined();
+    const firstDocs = await pois.find().toArray();
+    expect(firstDocs).toHaveLength(25);
+    const firstIdentities = identitySnapshot(firstDocs);
 
     await importPois({
       client: ocm,
@@ -60,10 +66,9 @@ describe("importPois (e2e)", () => {
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
     });
 
-    const countAfterSecondImport = await pois.countDocuments();
-    expect(countAfterSecondImport).toBe(25);
-    const secondExternalOne = await pois.findOne({ externalId: 1 });
-    expect(secondExternalOne?._id).toBe(firstExternalOne?._id);
+    const secondDocs = await pois.find().toArray();
+    expect(secondDocs).toHaveLength(25);
+    expect(identitySnapshot(secondDocs)).toEqual(firstIdentities);
 
     const duplicateExternalIds = await pois.aggregate([
       { $group: { _id: "$externalId", count: { $sum: 1 } } },
@@ -85,9 +90,10 @@ describe("importPois (e2e)", () => {
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
     });
 
-    const before = await pois.findOne({ externalId: 1 });
-    const beforeId = before?._id;
-    expect(before?.raw?.AddressInfo?.Title).toBe("POI 1");
+    const beforeDocs = await pois.find().toArray();
+    expect(beforeDocs).toHaveLength(25);
+    const beforeIdentities = identitySnapshot(beforeDocs);
+    expect(beforeDocs.some((doc) => doc.raw?.AddressInfo?.Title === "POI 1")).toBe(true);
 
     await importPois({
       client: ocm,
@@ -95,11 +101,12 @@ describe("importPois (e2e)", () => {
       config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "update" }
     });
 
-    const after = await pois.findOne({ externalId: 1 });
-    expect(after?._id).toBe(beforeId);
-    expect(after?.raw?.AddressInfo?.Title).toBe("POI 1 (updated)");
-    expect(await pois.countDocuments()).toBe(25);
+    const afterDocs = await pois.find().toArray();
+    expect(afterDocs).toHaveLength(25);
+    expect(identitySnapshot(afterDocs)).toEqual(beforeIdentities);
+    expect(afterDocs.every((doc) => doc.raw?.AddressInfo?.Title?.endsWith("(updated)") === true)).toBe(true);
 
     await repo.close();
   });
+
 });

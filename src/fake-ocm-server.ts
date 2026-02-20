@@ -22,11 +22,31 @@ const datasets: Record<string, { total: number; titleSuffix: string }> = {
   update: { total: 25, titleSuffix: " (updated)" }
 };
 
+let rateLimitedResponses = 0;
+let failed500Responses = 0;
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${port}`);
   if (url.pathname !== "/poi") {
     res.writeHead(404);
     return res.end();
+  }
+
+  const rateLimit = Number(url.searchParams.get("ratelimit") ?? "0");
+  if (Number.isFinite(rateLimit) && rateLimit > 0 && rateLimitedResponses < rateLimit) {
+    rateLimitedResponses += 1;
+    res.writeHead(429, {
+      "content-type": "application/json",
+      "Retry-After": "1"
+    });
+    return res.end(JSON.stringify({ error: "rate_limited" }));
+  }
+
+  const fail500 = Number(url.searchParams.get("fail500") ?? "0");
+  if (Number.isFinite(fail500) && fail500 > 0 && failed500Responses < fail500) {
+    failed500Responses += 1;
+    res.writeHead(500, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ error: "temporary_server_failure" }));
   }
 
   const datasetName = url.searchParams.get("dataset") ?? "small";

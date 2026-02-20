@@ -1,6 +1,13 @@
 import { randomUUID } from "crypto";
 import type { RawPoi, PoiDoc } from "./poi.types";
 
+export class InvalidPoiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidPoiError";
+  }
+}
+
 /**
  * Minimal transform:
  * - extracts `ID` from OpenChargeMap payload as `externalId`
@@ -10,9 +17,15 @@ import type { RawPoi, PoiDoc } from "./poi.types";
  * This will be extended once we define the normalized schema more precisely.
  */
 export const transformPoi = (raw: RawPoi): PoiDoc => {
-  const externalId = Number((raw as any).ID);
+  let externalId: number;
+  try {
+    externalId = Number((raw as any).ID);
+  } catch {
+    throw new InvalidPoiError("Invalid POI: missing numeric ID");
+  }
+
   if (!Number.isFinite(externalId)) {
-    throw new Error("Invalid POI: missing numeric ID");
+    throw new InvalidPoiError("Invalid POI: missing numeric ID");
   }
 
   const lastUpdatedRaw = (raw as any).DateLastStatusUpdate ?? (raw as any).DateLastVerified ?? undefined;

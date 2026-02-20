@@ -38,8 +38,9 @@ export class MongoPoiRepository implements PoiRepository {
       return { upserted: 0, modified: 0 };
     }
 
+    const dedupedDocs = this.dedupeByExternalId(docs);
     const col = await this.getCollection();
-    const ops = docs.map((doc) => ({
+    const ops = dedupedDocs.map((doc) => ({
       updateOne: {
         filter: { externalId: doc.externalId },
         update: {
@@ -61,6 +62,15 @@ export class MongoPoiRepository implements PoiRepository {
       upserted: res.upsertedCount ?? 0,
       modified: res.modifiedCount ?? 0
     };
+  }
+
+  private dedupeByExternalId(docs: PoiDoc[]): PoiDoc[] {
+    const byExternalId = new Map<number, PoiDoc>();
+    for (const doc of docs) {
+      // Keep the latest value seen for each externalId inside the same batch.
+      byExternalId.set(doc.externalId, doc);
+    }
+    return Array.from(byExternalId.values());
   }
 
   async close(): Promise<void> {

@@ -551,7 +551,7 @@ Pending items:
 
 ## PHASE D - Runtime Safety, Sanitized Logging, and Scaling Strategy
 
-Overall status: `IN_PROGRESS`  
+Overall status: `DONE`  
 Plan reference: `docs/ROADMAP.md` (PHASE D section)
 
 ### D1 - `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
@@ -601,5 +601,21 @@ Details:
 - `status`, safe `url`, `attempt`, `maxAttempts`.
 - Added unit tests proving logs do not leak response payloads and that error objects no longer expose `body`.
 
+### D3 - `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`
+Status: `DONE`  
+Commits: `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`  
+Paths:
+- `docs/SCALING.md`
+- `docs/CHANGELOG.md`
+- `docs/ROADMAP.md`
+
+Details:
+- Added a concise scaling strategy document for multi-worker imports.
+- Documented deterministic work partitioning:
+- time windows, country/bbox shards, and hybrid partitioning.
+- Documented atomic job leasing/claiming and lease expiration recovery model.
+- Documented distributed rate limiting with a Redis token bucket.
+- Clarified that idempotent upserts make writes safe, but do not eliminate duplicate upstream requests without leasing and distributed throttling.
+
 Pending Phase D items:
-- D3 `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`
+- None.

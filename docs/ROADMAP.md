@@ -72,6 +72,8 @@ Use small, meaningful commits (Conventional Commits). Each commit should keep th
 
 ## FASE D — Runtime Safety, Sanitized Logging, and Scaling Notes
 
+> Implementation details and completion tracking: `docs/CHANGELOG.md` and `docs/SCALING.md`.
+
 1. `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
 2. `feat(logging): sanitize logs to avoid raw payload leakage`
 3. `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`

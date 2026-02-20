@@ -1,14 +1,71 @@
+import { MongoClient, type Collection } from "mongodb";
 import type { PoiRepository, PoiDoc } from "../../ports/PoiRepository";
+import { mongoIndexes } from "./mongo.indexes";
 
 /**
- * Mongo repository scaffold.
- * Implement using `mongodb` driver and `bulkWrite` with `updateOne` + `upsert: true`.
+ * Mongo repository using bulk upsert by `externalId`.
  */
 export class MongoPoiRepository implements PoiRepository {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  constructor(private readonly mongoUri: string) {}
+  private client?: MongoClient;
+  private collection?: Collection<PoiDoc>;
 
-  async upsertMany(_docs: PoiDoc[]): Promise<{ upserted: number; modified: number }> {
-    throw new Error("Not implemented");
+  constructor(
+    private readonly mongoUri: string,
+    private readonly dbName = "jucr",
+    private readonly collectionName = "pois"
+  ) {}
+
+  private async getCollection(): Promise<Collection<PoiDoc>> {
+    if (this.collection) return this.collection;
+
+    this.client = new MongoClient(this.mongoUri);
+    await this.client.connect();
+
+    const db = this.client.db(this.dbName);
+    const col = db.collection<PoiDoc>(this.collectionName);
+
+    // Index creation is idempotent and guarantees unique externalId for upserts.
+    for (const idx of mongoIndexes.poiCollection) {
+      await col.createIndex(idx.keys, idx.options);
+    }
+
+    this.collection = col;
+    return col;
+  }
+
+  async upsertMany(docs: PoiDoc[]): Promise<{ upserted: number; modified: number }> {
+    if (docs.length === 0) {
+      return { upserted: 0, modified: 0 };
+    }
+
+    const col = await this.getCollection();
+    const ops = docs.map((doc) => ({
+      updateOne: {
+        filter: { externalId: doc.externalId },
+        update: {
+          $setOnInsert: {
+            _id: doc._id,
+            externalId: doc.externalId
+          },
+          $set: {
+            lastUpdated: doc.lastUpdated,
+            raw: doc.raw
+          }
+        },
+        upsert: true
+      }
+    }));
+
+    const res = await col.bulkWrite(ops, { ordered: false });
+    return {
+      upserted: res.upsertedCount ?? 0,
+      modified: res.modifiedCount ?? 0
+    };
+  }
+
+  async close(): Promise<void> {
+    await this.client?.close();
+    this.client = undefined;
+    this.collection = undefined;
   }
 }

@@ -1,32 +1,91 @@
+import { MongoClient } from "mongodb";
 import { OpenChargeMapHttpClient } from "../../src/infrastructure/openchargemap/OpenChargeMapHttpClient";
 import { importPois } from "../../src/application/import-pois/importPois.usecase";
 import { defaultImporterConfig } from "../../src/application/import-pois/importer.config";
-import type { PoiDoc, PoiRepository } from "../../src/ports/PoiRepository";
+import { MongoPoiRepository } from "../../src/infrastructure/mongo/MongoPoiRepository";
 
-/**
- * E2E (stage 1):
- * - Uses fake OCM HTTP server to validate integration across HTTP -> use-case -> transform -> repository port.
- * - Uses an in-memory repository test double to keep this commit runnable before Mongo repository implementation.
- */
-describe("importPois (e2e)", () => {
-  it("imports POIs from fake OCM and persists transformed docs via repository port", async () => {
-    const baseUrl = process.env.OCM_BASE_URL ?? "http://localhost:3999";
-    const apiKey = process.env.OCM_API_KEY ?? "test";
-    const client = new OpenChargeMapHttpClient(baseUrl, apiKey);
-    const persisted: PoiDoc[] = [];
-
-    const repo: PoiRepository = {
-      upsertMany: async (docs) => {
-        persisted.push(...docs);
-        return { upserted: docs.length, modified: 0 };
-      }
+type PersistedPoi = {
+  _id: string;
+  externalId: number;
+  raw?: {
+    AddressInfo?: {
+      Title?: string;
     };
+  };
+};
 
-    await importPois({ client, repo, config: { ...defaultImporterConfig, pageSize: 50 } });
+describe("importPois (e2e)", () => {
+  const mongoUri = process.env.MONGO_URI ?? "mongodb://127.0.0.1:27017/jucr";
+  const dbName = "jucr";
+  const colName = "pois";
 
-    expect(persisted).toHaveLength(25);
-    expect(persisted[0]?.externalId).toBe(1);
-    expect(typeof persisted[0]?._id).toBe("string");
-    expect(persisted.every((doc) => Number.isInteger(doc.externalId))).toBe(true);
+  const baseUrl = process.env.OCM_BASE_URL ?? "http://127.0.0.1:3999";
+  const apiKey = process.env.OCM_API_KEY ?? "test";
+
+  let client: MongoClient;
+
+  beforeAll(async () => {
+    client = new MongoClient(mongoUri);
+    await client.connect();
+  });
+
+  beforeEach(async () => {
+    await client.db(dbName).collection(colName).deleteMany({});
+  });
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  it("imports small dataset and is idempotent", async () => {
+    const ocm = new OpenChargeMapHttpClient(baseUrl, apiKey);
+    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
+    });
+
+    const pois = client.db(dbName).collection<PersistedPoi>(colName);
+    const countAfterFirstImport = await pois.countDocuments();
+    expect(countAfterFirstImport).toBe(25);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
+    });
+
+    const countAfterSecondImport = await pois.countDocuments();
+    expect(countAfterSecondImport).toBe(25);
+
+    await repo.close();
+  });
+
+  it("updates existing docs when dataset changes", async () => {
+    const ocm = new OpenChargeMapHttpClient(baseUrl, apiKey);
+    const repo = new MongoPoiRepository(mongoUri, dbName, colName);
+    const pois = client.db(dbName).collection<PersistedPoi>(colName);
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "small" }
+    });
+
+    const before = await pois.findOne({ externalId: 1 });
+    expect(before?.raw?.AddressInfo?.Title).toBe("POI 1");
+
+    await importPois({
+      client: ocm,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 10, concurrency: 5, dataset: "update" }
+    });
+
+    const after = await pois.findOne({ externalId: 1 });
+    expect(after?.raw?.AddressInfo?.Title).toBe("POI 1 (updated)");
+
+    await repo.close();
   });
 });

@@ -492,13 +492,15 @@ Details:
 
 ### M2 - `test(coverage): raise branch coverage above 85%`
 Status: `DONE`  
-Commits: `test(coverage): raise branch coverage above 85 percent`  
+Commits: `test(quality): validate critical functionality and strengthen reliability coverage`  
 Paths:
 - `tests/unit/importPois.pagination.test.ts`
 - `tests/unit/limiter.test.ts`
 - `tests/unit/transformPoi.test.ts`
 - `tests/unit/mongo-poi-repository.test.ts`
 - `tests/unit/import.error-handler.test.ts`
+- `tests/unit/composition.root.test.ts`
+- `tests/unit/http-client.request-shape.test.ts`
 
 Details:
 - Added branch-targeted unit tests for:
@@ -512,7 +514,21 @@ Details:
 - importer env override propagation from composition root,
 - HTTP client path/query construction (`/poi`, `modifiedsince`, `dataset`) and non-array payload rejection.
 - Coverage result after changes (`npm run test:unit -- --coverage`):
-- `Branches: 87.35%` (target was `>= 85%`).
+- `Statements: 91.38%`
+- `Branches: 92.66%`
+- `Functions: 93.02%`
+- `Lines: 91.41%`
+
+### M3 - `fix(ci): remove hardcoded API key from workflow`
+Status: `DONE`  
+Commits: `fix(ci): remove hardcoded api key from workflow env`  
+Paths:
+- `.github/workflows/ci.yml`
+
+Details:
+- Replaced hardcoded `OCM_API_KEY` in CI workflow env with `test`.
+- CI points to local fake OCM, so real key material is unnecessary.
+- Removes credential leakage risk from repo artifacts and shared bundles.
 
 ---
 

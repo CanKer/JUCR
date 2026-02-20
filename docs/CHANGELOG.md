@@ -324,7 +324,7 @@ Details:
 
 #### B2.9 - `feat(di): add composition root and wire cli through manual DI`
 Status: `DONE`  
-Commits: `feat(di): add composition root and wire cli through manual DI`  
+Commits: `refactor(di): move importer wiring to composition root and align resilience tests`  
 Paths:
 - `src/composition/root.ts`
 - `src/cli/import.ts`
@@ -337,14 +337,26 @@ Details:
 - `IMPORT_DATASET`, `IMPORT_MODIFIED_SINCE`, `OCM_TIMEOUT_MS`
 - Refactored CLI entrypoint into a thin runner that only executes `runImport()` and keeps process-level error handling.
 
+#### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
+Status: `DONE`  
+Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
+Paths:
+- `src/infrastructure/mongo/MongoPoiRepository.ts`
+- `tests/unit/mongo-poi-repository.test.ts`
+
+Details:
+- Added in-batch dedupe by `externalId` before building Mongo `bulkWrite` operations.
+- Keeps only the latest document for repeated `externalId` values within the same import page.
+- Added unit coverage to verify:
+- only one operation per repeated key is emitted.
+- latest payload wins for duplicate keys.
+
 Remaining Phase B items:
 - B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
 - B3.9 `feat(http): treat 4xx (except 429) as fatal errors`
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`
 - B4.11 `test(e2e): prove updates overwrite existing docs (dataset update)`
-- B4.12 `feat(repo): dedupe externalIds within batch before bulkWrite`
-- B5.13 `test(import): cover exact-multiple pageSize termination case`
 - B5.14 `test(import): cover retry without Retry-After fallback backoff`
 - B5.15 `test(import): validate results unchanged across concurrency levels`
 - B6.16 `docs: add performance and scalability reasoning for importer`

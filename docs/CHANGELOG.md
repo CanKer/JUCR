@@ -224,8 +224,22 @@ Details:
 - Added config validation guards for invalid paging values.
 - Import completion log includes `pagesProcessed`.
 
+### B2 - Retry validation (429/5xx/timeout) + Retry-After
+
+#### B2.3 - `test(http): add tests for retries on 429/5xx and network errors`
+Status: `DONE`  
+Commits: `test(http): add unit tests for retries on 429/5xx and fatal 4xx`  
+Paths:
+- `tests/unit/http-client.retry.test.ts`
+
+Details:
+- Added unit-level HTTP client tests using a local Node `http` server.
+- Verified retry behavior for transient `500` responses.
+- Verified retry behavior for `429` responses.
+- Verified `400/401/403` are fatal (single request, no retry).
+- Request counts are asserted in every scenario to validate retry policy wiring.
+
 Remaining Phase B items:
-- B2.3 `test(http): add tests for retries on 429/5xx and network errors`
 - B2.4 `feat(http): implement timeout with AbortController`
 - B2.5 `feat(http): respect Retry-After header for 429 responses`
 - B2.6 `test(e2e): simulate 429 with Retry-After in fake ocm server`

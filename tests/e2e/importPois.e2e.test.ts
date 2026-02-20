@@ -7,6 +7,7 @@ import { MongoPoiRepository } from "../../src/infrastructure/mongo/MongoPoiRepos
 type PersistedPoi = {
   _id: string;
   externalId: number;
+  lastUpdated?: Date;
   raw?: {
     AddressInfo?: {
       Title?: string;
@@ -50,6 +51,8 @@ describe("importPois (e2e)", () => {
     const pois = client.db(dbName).collection<PersistedPoi>(colName);
     const countAfterFirstImport = await pois.countDocuments();
     expect(countAfterFirstImport).toBe(25);
+    const firstExternalOne = await pois.findOne({ externalId: 1 });
+    expect(firstExternalOne?._id).toBeDefined();
 
     await importPois({
       client: ocm,
@@ -59,6 +62,14 @@ describe("importPois (e2e)", () => {
 
     const countAfterSecondImport = await pois.countDocuments();
     expect(countAfterSecondImport).toBe(25);
+    const secondExternalOne = await pois.findOne({ externalId: 1 });
+    expect(secondExternalOne?._id).toBe(firstExternalOne?._id);
+
+    const duplicateExternalIds = await pois.aggregate([
+      { $group: { _id: "$externalId", count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } }
+    ]).toArray();
+    expect(duplicateExternalIds).toHaveLength(0);
 
     await repo.close();
   });
@@ -75,6 +86,7 @@ describe("importPois (e2e)", () => {
     });
 
     const before = await pois.findOne({ externalId: 1 });
+    const beforeId = before?._id;
     expect(before?.raw?.AddressInfo?.Title).toBe("POI 1");
 
     await importPois({
@@ -84,7 +96,9 @@ describe("importPois (e2e)", () => {
     });
 
     const after = await pois.findOne({ externalId: 1 });
+    expect(after?._id).toBe(beforeId);
     expect(after?.raw?.AddressInfo?.Title).toBe("POI 1 (updated)");
+    expect(await pois.countDocuments()).toBe(25);
 
     await repo.close();
   });

@@ -1,6 +1,10 @@
 import { createLimiter } from "../../src/shared/concurrency/limiter";
 
 describe("createLimiter", () => {
+  it("throws for invalid concurrency", () => {
+    expect(() => createLimiter(0)).toThrow("concurrency must be an integer >= 1");
+  });
+
   it("limits concurrency", async () => {
     const limit = createLimiter(2);
     let active = 0;

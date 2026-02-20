@@ -26,6 +26,16 @@ const startServer = async (
 };
 
 describe("OpenChargeMapHttpClient timeout handling", () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   it("retries timed out requests and eventually succeeds", async () => {
     let requests = 0;
 

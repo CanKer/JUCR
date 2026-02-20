@@ -25,7 +25,7 @@ const startServer = async (
   };
 };
 
-describe("OpenChargeMapHttpClient retry policy", () => {
+describe("OpenChargeMapHttpClient sanitized logging", () => {
   let warnSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -36,72 +36,60 @@ describe("OpenChargeMapHttpClient retry policy", () => {
     warnSpy.mockRestore();
   });
 
-  it("retries on 500 and eventually succeeds", async () => {
+  it("logs retry metadata without leaking response body", async () => {
     let requests = 0;
+    const secretBody = "super-secret-http-body";
     const server = await startServer((_req, res) => {
       requests += 1;
-      if (requests < 3) {
+      if (requests === 1) {
         res.writeHead(500, { "content-type": "text/plain" });
-        res.end("temporary failure");
+        res.end(secretBody);
         return;
       }
-
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
     });
 
     const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
-    const pois = await client.fetchPois({ limit: 10, offset: 0 });
+    await client.fetchPois({ limit: 10, offset: 0 });
 
-    expect(pois).toHaveLength(1);
-    expect(requests).toBe(3);
-
-    await server.close();
-  });
-
-  it("retries on 429", async () => {
-    let requests = 0;
-    const server = await startServer((_req, res) => {
-      requests += 1;
-      if (requests < 3) {
-        res.writeHead(429, { "content-type": "text/plain" });
-        res.end("rate limited");
-        return;
-      }
-
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
-    });
-
-    const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
-    const pois = await client.fetchPois({ limit: 10, offset: 0 });
-
-    expect(pois).toHaveLength(1);
-    expect(requests).toBe(3);
+    expect(warnSpy).toHaveBeenCalled();
+    const retryLog = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    expect(retryLog.event).toBe("http.retry");
+    expect(retryLog.status).toBe(500);
+    expect(retryLog.attempt).toBe(1);
+    expect(retryLog.maxAttempts).toBe(6);
+    expect(String(retryLog.url)).toContain("/poi");
+    expect(JSON.stringify(retryLog)).not.toContain(secretBody);
 
     await server.close();
   });
 
-  it.each([400, 401, 403, 404, 409, 422])("treats non-429 4xx (%s) as fatal (no retry)", async (status) => {
-    let requests = 0;
+  it("logs give-up metadata and does not expose error body on fatal 4xx", async () => {
+    const secretBody = "do-not-log-this-body";
     const server = await startServer((_req, res) => {
-      requests += 1;
-      res.writeHead(status, { "content-type": "text/plain" });
-      res.end("fatal");
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end(secretBody);
     });
 
     const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
-
-    let err: (Error & { body?: string }) | undefined;
+    let error: (Error & { body?: string }) | undefined;
     try {
-      await client.fetchPois({ limit: 10, offset: 0 });
-    } catch (error) {
-      err = error as Error & { body?: string };
+      await client.fetchPois({ limit: 1, offset: 0 });
+    } catch (err) {
+      error = err as Error & { body?: string };
     }
-    expect(err).toBeDefined();
-    expect(err?.message).toMatch(new RegExp(`OCM request failed: ${status}`));
-    expect(err?.body).toBeUndefined();
-    expect(requests).toBe(1);
+
+    expect(error).toBeDefined();
+    expect(error?.message).toContain("OCM request failed: 400");
+    expect(error?.body).toBeUndefined();
+
+    const giveUpLog = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    expect(giveUpLog.event).toBe("http.give_up");
+    expect(giveUpLog.status).toBe(400);
+    expect(giveUpLog.attempt).toBe(1);
+    expect(giveUpLog.maxAttempts).toBe(6);
+    expect(JSON.stringify(giveUpLog)).not.toContain(secretBody);
 
     await server.close();
   });

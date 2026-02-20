@@ -3,9 +3,9 @@ import { retry } from "../../shared/retry/retry";
 
 type OcmRequestError = Error & {
   status?: number;
-  body?: string;
   isTimeout?: boolean;
   retryDelayMs?: number;
+  requestUrl?: string;
 };
 
 /**
@@ -28,6 +28,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
     if (params.offset != null) url.searchParams.set("offset", String(params.offset));
     if (params.modifiedSince) url.searchParams.set("modifiedsince", params.modifiedSince);
     if (params.dataset) url.searchParams.set("dataset", params.dataset);
+    const safeRequestUrl = `${url.origin}${url.pathname}${url.search}`;
 
     const doFetch = async () => {
       const controller = new AbortController();
@@ -44,6 +45,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
         if (err instanceof Error && err.name === "AbortError") {
           const timeoutError = new Error(`OCM request timeout after ${this.timeoutMs}ms`) as OcmRequestError;
           timeoutError.isTimeout = true;
+          timeoutError.requestUrl = safeRequestUrl;
           throw timeoutError;
         }
         throw err;
@@ -52,10 +54,10 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
       }
 
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
+        await res.text().catch(() => "");
         const err = new Error(`OCM request failed: ${res.status}`) as OcmRequestError;
         err.status = res.status;
-        err.body = body;
+        err.requestUrl = safeRequestUrl;
         if (res.status === 429) {
           const retryAfter = res.headers.get("retry-after");
           if (retryAfter && /^\d+$/.test(retryAfter)) {
@@ -76,6 +78,28 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
       retries: 5,
       minDelayMs: 250,
       maxDelayMs: 5000,
+      onRetry: ({ attempt, maxAttempts, error }) => {
+        const ocmError = error as OcmRequestError;
+        // eslint-disable-next-line no-console
+        console.warn(JSON.stringify({
+          event: "http.retry",
+          status: ocmError.status ?? null,
+          url: ocmError.requestUrl ?? safeRequestUrl,
+          attempt,
+          maxAttempts
+        }));
+      },
+      onGiveUp: ({ attempt, maxAttempts, error }) => {
+        const ocmError = error as OcmRequestError;
+        // eslint-disable-next-line no-console
+        console.warn(JSON.stringify({
+          event: "http.give_up",
+          status: ocmError.status ?? null,
+          url: ocmError.requestUrl ?? safeRequestUrl,
+          attempt,
+          maxAttempts
+        }));
+      },
       shouldRetry: (err) => {
         const ocmError = err as OcmRequestError;
         if (ocmError.isTimeout) return true;

@@ -15,6 +15,27 @@ This document summarizes current performance choices for the POI importer and ho
 - The repository dedupes the page batch before `bulkWrite`.
 - This avoids conflicting upsert operations for the same key in one bulk request and reduces unnecessary writes.
 
+## Idempotency model (explicit)
+
+This importer is idempotent at the database write layer.
+
+- Stable write key: POIs are upserted by `externalId` with a unique index.
+- Insert path: first write creates the document (`$setOnInsert` keeps the inserted `_id`).
+- Update path: later writes for the same `externalId` update fields instead of creating duplicates.
+- In-batch dedupe: if one page includes the same `externalId` multiple times, only the latest item in the page is written.
+
+What this guarantees:
+
+- Re-importing the same dataset keeps one document per `externalId`.
+- Retrying a failed page is safe for persistence correctness.
+- Update imports overwrite existing payload fields for matching keys.
+
+What this does not guarantee:
+
+- It does not prevent duplicate upstream HTTP requests in multi-worker setups.
+- It does not provide global exactly-once delivery across distributed workers by itself.
+- It does not replace partition leasing/rate limiting for horizontal scaling.
+
 ## `pageSize` tradeoffs
 
 - Larger `pageSize`:

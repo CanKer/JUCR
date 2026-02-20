@@ -6,6 +6,8 @@ export type ImportFailureCode = "transform_unexpected" | "repository_write_faile
 export type ImportErrorContext = {
   page: number;
   offset: number;
+  pageSize?: number;
+  externalId?: number;
   index?: number;
 };
 
@@ -35,36 +37,42 @@ export type TransformFailureDecision =
   | {
       action: "skip";
       code: ImportSkipCode;
-      log: {
-        event: "import.poi_skipped";
-        code: ImportSkipCode;
-        reason: string;
-        page: number;
-        offset: number;
-        index: number;
-      };
+      log: ImportPoiSkippedLog;
     }
   | {
       action: "fail";
       error: ImportFatalError;
     };
 
+type ImportPoiSkippedLog = {
+  event: "import.poi_skipped";
+  reason: string;
+  offset: number;
+  pageSize: number;
+  externalId?: number;
+};
+
 export const classifyTransformFailure = (
   reason: unknown,
-  context: Required<Pick<ImportErrorContext, "page" | "offset" | "index">>
+  context: Required<Pick<ImportErrorContext, "page" | "offset" | "pageSize" | "index">> & {
+    externalId?: number;
+  }
 ): TransformFailureDecision => {
   if (reason instanceof InvalidPoiError) {
+    const log: ImportPoiSkippedLog = {
+      event: "import.poi_skipped",
+      reason: reason.message,
+      offset: context.offset,
+      pageSize: context.pageSize
+    };
+    if (context.externalId != null) {
+      log.externalId = context.externalId;
+    }
+
     return {
       action: "skip",
       code: "invalid_poi",
-      log: {
-        event: "import.poi_skipped",
-        code: "invalid_poi",
-        reason: reason.message,
-        page: context.page,
-        offset: context.offset,
-        index: context.index
-      }
+      log
     };
   }
 
@@ -115,6 +123,7 @@ export const createImportRunSummaryTracker = () => {
     },
     addSkipped: (code: ImportSkipCode) => {
       skippedByCode[code] = (skippedByCode[code] ?? 0) + 1;
+      return skippedByCode[code] ?? 0;
     },
     summary: (): ImportRunSummary => ({
       total,

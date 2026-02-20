@@ -490,6 +490,60 @@ Details:
 - Updated `npm run dev` to run a build first and then execute `dist/src/server.js`.
 - Prevents runtime failure on clean environments where `dist/` has not been generated yet.
 
+### M2 - `test(coverage): raise branch coverage above 85%`
+Status: `DONE`  
+Commits: `test(quality): validate critical functionality and strengthen reliability coverage`  
+Paths:
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/limiter.test.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/mongo-poi-repository.test.ts`
+- `tests/unit/import.error-handler.test.ts`
+- `tests/unit/composition.root.test.ts`
+- `tests/unit/http-client.request-shape.test.ts`
+
+Details:
+- Added branch-targeted unit tests for:
+- invalid importer config guards (`pageSize`, `maxPages`, `startOffset`),
+- invalid limiter concurrency guard,
+- `transformPoi` valid/invalid timestamp handling branches,
+- Mongo repository early-return, cached-collection, and undefined-counter fallback branches,
+- error-handler paths for non-`Error` failure payloads.
+- Added critical wiring/request-shape tests for:
+- composition root dependency wiring and `finally` close behavior on success/failure,
+- importer env override propagation from composition root,
+- HTTP client path/query construction (`/poi`, `modifiedsince`, `dataset`) and non-array payload rejection.
+- Coverage result after changes (`npm run test:unit -- --coverage`):
+- `Statements: 91.38%`
+- `Branches: 92.66%`
+- `Functions: 93.02%`
+- `Lines: 91.41%`
+
+### M3 - `fix(ci): remove hardcoded API key from workflow`
+Status: `DONE`  
+Commits: `fix(ci): remove hardcoded api key from workflow env`  
+Paths:
+- `.github/workflows/ci.yml`
+
+Details:
+- Replaced hardcoded `OCM_API_KEY` in CI workflow env with `test`.
+- CI points to local fake OCM, so real key material is unnecessary.
+- Removes credential leakage risk from repo artifacts and shared bundles.
+
+### M4 - `docs(performance): clarify idempotency guarantees and limits`
+Status: `DONE`  
+Commits: `docs(performance): clarify idempotency guarantees and limits`  
+Paths:
+- `docs/PERFORMANCE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added an explicit `Idempotency model` section to the performance document.
+- Documented storage-level guarantees provided by upserts on unique `externalId`.
+- Documented non-goals:
+- idempotent writes do not prevent duplicate upstream requests,
+- and do not replace partition leasing/distributed rate limiting for multi-worker execution.
+
 ---
 
 ## PHASE C - Documentation & Professional Polish
@@ -506,3 +560,76 @@ Pending items:
 - C6 `docs: add reliability and scalability notes (timeouts, fault tolerance)`
 - C7 `docs: describe graphql integration approach (conceptual)`
 - C8 `docs: describe monitoring and logging approach (conceptual)`
+
+---
+
+## PHASE D - Runtime Safety, Sanitized Logging, and Scaling Strategy
+
+Overall status: `DONE`  
+Plan reference: `docs/ROADMAP.md` (PHASE D section)
+
+### D1 - `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
+Status: `DONE`  
+Commits: `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`  
+Paths:
+- `src/application/import-pois/importer.config.ts`
+- `src/shared/config/runtime.config.ts`
+- `src/composition/root.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `tests/unit/runtime.config.test.ts`
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/composition.root.test.ts`
+- `docs/ROADMAP.md`
+
+Details:
+- Added hard caps for runtime safety:
+- `concurrency [1..50]`
+- `pageSize [1..500]`
+- `maxPages [1..100000]`
+- `timeoutMs [1000..30000]`
+- Centralized runtime/env cap enforcement in `loadRuntimeConfigFromEnv()`.
+- Centralized importer config validation in `validateImporterConfig()`.
+- Validation failures now include both invalid value and allowed range.
+- Added unit tests for boundary-valid values and out-of-range failures.
+
+### D2 - `feat(logging): sanitize logs to avoid raw payload leakage`
+Status: `DONE`  
+Commits: `feat(logging): sanitize logs to avoid raw payload leakage`  
+Paths:
+- `src/application/import-pois/import.error-handler.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/shared/retry/retry.ts`
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/http-client.sanitized-logging.test.ts`
+- `tests/unit/http-client.retry.test.ts`
+- `tests/unit/http-client.timeout.test.ts`
+- `tests/unit/http-client.retry-after.test.ts`
+- `tests/unit/http-client.request-shape.test.ts`
+
+Details:
+- Sanitized skipped-POI logs to include only safe metadata:
+- `externalId` (if present), `reason`, `offset`, `pageSize`, and `skippedCount`.
+- Removed HTTP response body retention from request errors.
+- Added HTTP retry/give-up structured logs with safe fields only:
+- `status`, safe `url`, `attempt`, `maxAttempts`.
+- Added unit tests proving logs do not leak response payloads and that error objects no longer expose `body`.
+
+### D3 - `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`
+Status: `DONE`  
+Commits: `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`  
+Paths:
+- `docs/SCALING.md`
+- `docs/CHANGELOG.md`
+- `docs/ROADMAP.md`
+
+Details:
+- Added a concise scaling strategy document for multi-worker imports.
+- Documented deterministic work partitioning:
+- time windows, country/bbox shards, and hybrid partitioning.
+- Documented atomic job leasing/claiming and lease expiration recovery model.
+- Documented distributed rate limiting with a Redis token bucket.
+- Clarified that idempotent upserts make writes safe, but do not eliminate duplicate upstream requests without leasing and distributed throttling.
+
+Pending Phase D items:
+- None.

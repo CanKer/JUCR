@@ -3,6 +3,7 @@ import type { PoiRepository } from "../../ports/PoiRepository";
 import { createLimiter } from "../../shared/concurrency/limiter";
 import { transformPoi } from "../../core/poi/transformPoi";
 import type { ImporterConfig } from "./importer.config";
+import { validateImporterConfig } from "./importer.config";
 import {
   classifyTransformFailure,
   createImportRunSummaryTracker,
@@ -15,16 +16,12 @@ import {
 export const importPois = async (
   deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfig }
 ): Promise<void> => {
-  const { client, repo, config } = deps;
-  if (!Number.isInteger(config.pageSize) || config.pageSize < 1) {
-    throw new Error("pageSize must be an integer >= 1");
-  }
-  if (!Number.isInteger(config.maxPages) || config.maxPages < 1) {
-    throw new Error("maxPages must be an integer >= 1");
-  }
-  if (!Number.isInteger(config.startOffset) || config.startOffset < 0) {
-    throw new Error("startOffset must be an integer >= 0");
-  }
+  const { client, repo } = deps;
+  const config = validateImporterConfig(deps.config);
+  const extractExternalId = (rawPoi: unknown): number | undefined => {
+    const id = Number((rawPoi as { ID?: unknown }).ID);
+    return Number.isFinite(id) ? id : undefined;
+  };
 
   const limit = createLimiter(config.concurrency);
   const maxPages = config.maxPages;
@@ -49,11 +46,17 @@ export const importPois = async (
         return [result.value];
       }
 
-      const decision = classifyTransformFailure(result.reason, { page: currentPage, offset, index });
+      const decision = classifyTransformFailure(result.reason, {
+        page: currentPage,
+        offset,
+        pageSize: config.pageSize,
+        index,
+        externalId: extractExternalId(raw[index])
+      });
       if (decision.action === "skip") {
-        summaryTracker.addSkipped(decision.code);
+        const skippedCount = summaryTracker.addSkipped(decision.code);
         // eslint-disable-next-line no-console
-        console.warn(JSON.stringify(decision.log));
+        console.warn(JSON.stringify({ ...decision.log, skippedCount }));
         return [];
       }
 

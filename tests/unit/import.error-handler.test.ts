@@ -11,6 +11,7 @@ describe("import.error-handler", () => {
     const decision = classifyTransformFailure(new InvalidPoiError("Invalid POI: missing numeric ID"), {
       page: 2,
       offset: 10,
+      pageSize: 25,
       index: 3
     });
 
@@ -19,11 +20,9 @@ describe("import.error-handler", () => {
       expect(decision.code).toBe("invalid_poi");
       expect(decision.log).toEqual({
         event: "import.poi_skipped",
-        code: "invalid_poi",
         reason: "Invalid POI: missing numeric ID",
-        page: 2,
         offset: 10,
-        index: 3
+        pageSize: 25
       });
     }
   });
@@ -32,6 +31,7 @@ describe("import.error-handler", () => {
     const decision = classifyTransformFailure(new Error("unexpected transform issue"), {
       page: 1,
       offset: 0,
+      pageSize: 10,
       index: 0
     });
 
@@ -40,7 +40,22 @@ describe("import.error-handler", () => {
       expect(decision.error).toBeInstanceOf(ImportFatalError);
       expect(decision.error.code).toBe("transform_unexpected");
       expect(decision.error.message).toContain("unexpected transform issue");
-      expect(decision.error.context).toEqual({ page: 1, offset: 0, index: 0 });
+      expect(decision.error.context).toEqual({ page: 1, offset: 0, pageSize: 10, index: 0 });
+    }
+  });
+
+  it("classifies non-Error transform failures as fatal with stringified message", () => {
+    const decision = classifyTransformFailure("boom", {
+      page: 1,
+      offset: 0,
+      pageSize: 10,
+      index: 0
+    });
+
+    expect(decision.action).toBe("fail");
+    if (decision.action === "fail") {
+      expect(decision.error).toBeInstanceOf(ImportFatalError);
+      expect(decision.error.message).toContain("boom");
     }
   });
 
@@ -53,13 +68,21 @@ describe("import.error-handler", () => {
     expect(error.context).toEqual({ page: 4, offset: 300 });
   });
 
+  it("wraps non-Error repository failures", () => {
+    const error = wrapRepositoryFailure("write failed", { page: 4, offset: 300 });
+
+    expect(error).toBeInstanceOf(ImportFatalError);
+    expect(error.code).toBe("repository_write_failed");
+    expect(error.message).toContain("write failed");
+  });
+
   it("tracks summary totals and skipped counters", () => {
     const tracker = createImportRunSummaryTracker();
 
     tracker.addImported(8);
     tracker.addProcessedPage();
-    tracker.addSkipped("invalid_poi");
-    tracker.addSkipped("invalid_poi");
+    expect(tracker.addSkipped("invalid_poi")).toBe(1);
+    expect(tracker.addSkipped("invalid_poi")).toBe(2);
     tracker.addImported(4);
     tracker.addProcessedPage();
 

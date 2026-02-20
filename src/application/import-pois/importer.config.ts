@@ -13,3 +13,23 @@ export const defaultImporterConfig: ImporterConfig = {
   maxPages: 1000,
   startOffset: 0
 };
+
+export const importerCaps = {
+  concurrency: { min: 1, max: 50 },
+  pageSize: { min: 1, max: 500 },
+  maxPages: { min: 1, max: 100000 }
+} as const;
+
+const assertIntegerInRange = (name: string, value: number, min: number, max: number) => {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`${name}=${String(value)} is out of allowed range [${min}..${max}]`);
+  }
+};
+
+export const validateImporterConfig = (config: ImporterConfig): ImporterConfig => {
+  assertIntegerInRange("concurrency", config.concurrency, importerCaps.concurrency.min, importerCaps.concurrency.max);
+  assertIntegerInRange("pageSize", config.pageSize, importerCaps.pageSize.min, importerCaps.pageSize.max);
+  assertIntegerInRange("maxPages", config.maxPages, importerCaps.maxPages.min, importerCaps.maxPages.max);
+  assertIntegerInRange("startOffset", config.startOffset, 0, Number.MAX_SAFE_INTEGER);
+  return config;
+};

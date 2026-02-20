@@ -337,6 +337,19 @@ Details:
 - `IMPORT_DATASET`, `IMPORT_MODIFIED_SINCE`, `OCM_TIMEOUT_MS`
 - Refactored CLI entrypoint into a thin runner that only executes `runImport()` and keeps process-level error handling.
 
+### B3 - Advanced error handling
+
+#### B3.7 - `test(import): skip invalid POIs and continue importing`
+Status: `DONE`  
+Commits: `test(import): skip invalid POIs and continue importing`  
+Paths:
+- `tests/unit/importPois.invalid-pois.test.ts`
+
+Details:
+- Added unit coverage for mixed-validity pages where some POIs are invalid.
+- Verifies importer skips invalid items and persists remaining valid items.
+- Verifies importer continues on subsequent pages and reports `skippedInvalid` in completion log.
+
 #### B4.12 - `feat(repo): dedupe externalIds within batch before bulkWrite`
 Status: `DONE`  
 Commits: `feat(repo): dedupe externalIds in Mongo batch upserts`  
@@ -376,7 +389,6 @@ Details:
 - conceptual horizontal-scaling strategy for later phases.
 
 Remaining Phase B items:
-- B3.7 `test(import): skip invalid POIs and continue importing`
 - B3.8 `feat(import): classify errors and handle invalid POIs without failing job`
 - B3.9 `feat(http): treat 4xx (except 429) as fatal errors`
 - B4.10 `test(e2e): prove idempotent upserts (no duplicates on reimport)`

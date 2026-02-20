@@ -26,6 +26,7 @@ export const importPois = async (
   let offset = config.startOffset;
   let total = 0;
   let pagesProcessed = 0;
+  let skippedInvalid = 0;
 
   while (pagesProcessed < maxPages) {
     const raw = await client.fetchPois({
@@ -37,11 +38,25 @@ export const importPois = async (
 
     if (raw.length === 0) break;
 
-    // Transform concurrently (bounded)
-    const docs = await Promise.all(raw.map((r) => limit(async () => transformPoi(r))));
+    // Transform concurrently (bounded), skipping invalid POIs without failing whole page.
+    const transformed = await Promise.allSettled(raw.map((r) => limit(async () => transformPoi(r))));
+    const docs = transformed.flatMap((result) => {
+      if (result.status === "fulfilled") return [result.value];
+
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      if (/invalid poi/i.test(message)) {
+        skippedInvalid += 1;
+        // eslint-disable-next-line no-console
+        console.warn(JSON.stringify({ event: "import.poi_skipped", reason: message }));
+        return [];
+      }
+      throw result.reason;
+    });
 
     // Persist
-    await repo.upsertMany(docs);
+    if (docs.length > 0) {
+      await repo.upsertMany(docs);
+    }
 
     pagesProcessed += 1;
     total += docs.length;
@@ -51,5 +66,5 @@ export const importPois = async (
     if (raw.length < config.pageSize) break;
   }
 
-  console.log(JSON.stringify({ event: "import.completed", total, pagesProcessed }));
+  console.log(JSON.stringify({ event: "import.completed", total, pagesProcessed, skippedInvalid }));
 };

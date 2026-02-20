@@ -1,0 +1,76 @@
+import { importPois } from "../../src/application/import-pois/importPois.usecase";
+import { defaultImporterConfig } from "../../src/application/import-pois/importer.config";
+import type { OpenChargeMapClient } from "../../src/ports/OpenChargeMapClient";
+import type { PoiDoc, PoiRepository } from "../../src/ports/PoiRepository";
+
+const createCapturingRepo = () => {
+  const batches: PoiDoc[][] = [];
+  const repo: PoiRepository = {
+    upsertMany: async (docs) => {
+      batches.push(docs);
+      return { upserted: docs.length, modified: 0 };
+    }
+  };
+
+  return { repo, batches };
+};
+
+describe("importPois invalid POI handling", () => {
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it("skips invalid POIs and continues importing remaining items", async () => {
+    const pages = [
+      [
+        { ID: 1, AddressInfo: { Title: "POI 1" } },
+        { AddressInfo: { Title: "Missing ID" } },
+        { ID: 2, AddressInfo: { Title: "POI 2" } },
+        { ID: "not-a-number", AddressInfo: { Title: "Bad ID" } }
+      ],
+      [{ ID: 3, AddressInfo: { Title: "POI 3" } }],
+      []
+    ];
+    let fetchCount = 0;
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => pages[fetchCount++] ?? []
+    };
+
+    const { repo, batches } = createCapturingRepo();
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 4, concurrency: 3 }
+    });
+
+    expect(fetchCount).toBe(2);
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+    expect(batches).toHaveLength(2);
+    expect(batches[0].map((doc) => doc.externalId)).toEqual([1, 2]);
+    expect(batches[1].map((doc) => doc.externalId)).toEqual([3]);
+
+    const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+      event: string;
+      total: number;
+      pagesProcessed: number;
+      skippedInvalid: number;
+    };
+    expect(completion).toEqual({
+      event: "import.completed",
+      total: 3,
+      pagesProcessed: 2,
+      skippedInvalid: 2
+    });
+  });
+});

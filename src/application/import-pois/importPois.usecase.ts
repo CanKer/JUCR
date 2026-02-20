@@ -18,6 +18,10 @@ export const importPois = async (
 ): Promise<void> => {
   const { client, repo } = deps;
   const config = validateImporterConfig(deps.config);
+  const extractExternalId = (rawPoi: unknown): number | undefined => {
+    const id = Number((rawPoi as { ID?: unknown }).ID);
+    return Number.isFinite(id) ? id : undefined;
+  };
 
   const limit = createLimiter(config.concurrency);
   const maxPages = config.maxPages;
@@ -42,11 +46,17 @@ export const importPois = async (
         return [result.value];
       }
 
-      const decision = classifyTransformFailure(result.reason, { page: currentPage, offset, index });
+      const decision = classifyTransformFailure(result.reason, {
+        page: currentPage,
+        offset,
+        pageSize: config.pageSize,
+        index,
+        externalId: extractExternalId(raw[index])
+      });
       if (decision.action === "skip") {
-        summaryTracker.addSkipped(decision.code);
+        const skippedCount = summaryTracker.addSkipped(decision.code);
         // eslint-disable-next-line no-console
-        console.warn(JSON.stringify(decision.log));
+        console.warn(JSON.stringify({ ...decision.log, skippedCount }));
         return [];
       }
 

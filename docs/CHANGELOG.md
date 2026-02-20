@@ -578,6 +578,28 @@ Details:
 - Validation failures now include both invalid value and allowed range.
 - Added unit tests for boundary-valid values and out-of-range failures.
 
+### D2 - `feat(logging): sanitize logs to avoid raw payload leakage`
+Status: `DONE`  
+Commits: `feat(logging): sanitize logs to avoid raw payload leakage`  
+Paths:
+- `src/application/import-pois/import.error-handler.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/shared/retry/retry.ts`
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/http-client.sanitized-logging.test.ts`
+- `tests/unit/http-client.retry.test.ts`
+- `tests/unit/http-client.timeout.test.ts`
+- `tests/unit/http-client.retry-after.test.ts`
+- `tests/unit/http-client.request-shape.test.ts`
+
+Details:
+- Sanitized skipped-POI logs to include only safe metadata:
+- `externalId` (if present), `reason`, `offset`, `pageSize`, and `skippedCount`.
+- Removed HTTP response body retention from request errors.
+- Added HTTP retry/give-up structured logs with safe fields only:
+- `status`, safe `url`, `attempt`, `maxAttempts`.
+- Added unit tests proving logs do not leak response payloads and that error objects no longer expose `body`.
+
 Pending Phase D items:
-- D2 `feat(logging): sanitize logs to avoid raw payload leakage`
 - D3 `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`

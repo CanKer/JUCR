@@ -26,6 +26,16 @@ const startServer = async (
 };
 
 describe("OpenChargeMapHttpClient Retry-After support", () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   it("respects Retry-After on 429 and eventually succeeds", async () => {
     const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
     const timeoutSpy = jest.spyOn(global, "setTimeout");

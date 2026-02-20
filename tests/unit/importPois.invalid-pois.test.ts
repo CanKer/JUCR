@@ -56,6 +56,25 @@ describe("importPois invalid POI handling", () => {
 
     expect(fetchCount).toBe(2);
     expect(warnSpy).toHaveBeenCalledTimes(2);
+    const skipLog1 = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    const skipLog2 = JSON.parse(String(warnSpy.mock.calls[1][0])) as Record<string, unknown>;
+    expect(skipLog1).toEqual({
+      event: "import.poi_skipped",
+      reason: "Invalid POI: missing numeric ID",
+      offset: 0,
+      pageSize: 4,
+      skippedCount: 1
+    });
+    expect(skipLog2).toEqual({
+      event: "import.poi_skipped",
+      reason: "Invalid POI: missing numeric ID",
+      offset: 0,
+      pageSize: 4,
+      skippedCount: 2
+    });
+    expect(JSON.stringify(skipLog1)).not.toContain("AddressInfo");
+    expect(JSON.stringify(skipLog1)).not.toContain("Missing ID");
+
     expect(batches).toHaveLength(2);
     expect(batches[0].map((doc) => doc.externalId)).toEqual([1, 2]);
     expect(batches[1].map((doc) => doc.externalId)).toEqual([3]);

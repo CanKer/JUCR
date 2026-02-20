@@ -26,6 +26,16 @@ const startServer = async (
 };
 
 describe("OpenChargeMapHttpClient request shape", () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   it("builds /v3/poi path and forwards query params", async () => {
     let receivedUrl = "";
     const server = await startServer((req, res) => {

@@ -239,8 +239,20 @@ Details:
 - Verified `400/401/403` are fatal (single request, no retry).
 - Request counts are asserted in every scenario to validate retry policy wiring.
 
+#### B2.4 - `feat(http): implement timeout with AbortController`
+Status: `DONE`  
+Commits: `feat(http): add request timeout via AbortController`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.timeout.test.ts`
+
+Details:
+- Added request timeout support in `OpenChargeMapHttpClient` using `AbortController`.
+- Constructor now accepts optional `timeoutMs` with default `8000`.
+- Timeout aborts are classified as transient and retried by the HTTP retry policy.
+- Added unit coverage validating timeout retries followed by success.
+
 Remaining Phase B items:
-- B2.4 `feat(http): implement timeout with AbortController`
 - B2.5 `feat(http): respect Retry-After header for 429 responses`
 - B2.6 `test(e2e): simulate 429 with Retry-After in fake ocm server`
 - B3.7 `test(import): skip invalid POIs and continue importing`

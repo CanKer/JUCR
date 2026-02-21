@@ -697,3 +697,43 @@ Details:
 - Added tests proving:
 - safe defaults apply when `startOffset` and `maxPages` are omitted,
 - invalid `IMPORT_START_OFFSET` values fail fast with clear range errors.
+
+### E2 - HTTP robustness (timeout + fatal 4xx)
+
+#### E2.3 - `test(http): cover fatal 4xx and retryable 5xx/network errors`
+Status: `DONE`  
+Commits: `test(http): cover fatal 4xx and retryable 5xx/network errors`  
+Paths:
+- `tests/unit/http-client.retry.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added request-count assertions for retryable `500` flows and fatal non-`429` `4xx` flows.
+- Added explicit network-error retry test by simulating socket-level failures in a local Node HTTP server.
+- Verifies retry behavior reaches success after transient failures with exact request counts.
+
+#### E2.4 - `feat(http): add AbortController timeout to OpenChargeMapHttpClient`
+Status: `DONE`  
+Commits: `feat(http): add request timeout via AbortController`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.timeout.test.ts`
+
+Details:
+- `OpenChargeMapHttpClient` uses `AbortController` timeout with constructor parameter `timeoutMs` (default `8000`).
+- Timeout aborts are classified as transient retryable failures.
+- Tests cover:
+- timeout retries then success,
+- timeout retries exhausted then fail,
+- both with request-count assertions.
+
+#### E2.5 - `feat(http): treat 4xx (except 429) as fatal (no retry)`
+Status: `DONE`  
+Commits: `feat(http): treat 4xx (except 429) as fatal errors`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.retry.test.ts`
+
+Details:
+- Retry classifier treats non-`429` `4xx` responses as fatal (single request, no retry).
+- Keeps `429` retryable and `5xx` retryable.

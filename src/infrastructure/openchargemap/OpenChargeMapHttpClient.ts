@@ -42,7 +42,7 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
           signal: controller.signal
         });
       } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") {
+        if (controller.signal.aborted) {
           const timeoutError = new Error(`OCM request timeout after ${this.timeoutMs}ms`) as OcmRequestError;
           timeoutError.isTimeout = true;
           timeoutError.requestUrl = safeRequestUrl;

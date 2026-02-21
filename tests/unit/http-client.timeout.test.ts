@@ -61,4 +61,25 @@ describe("OpenChargeMapHttpClient timeout handling", () => {
 
     await server.close();
   });
+
+  it("retries timed out requests and fails after max attempts", async () => {
+    let requests = 0;
+
+    const server = await startServer((_req, res) => {
+      requests += 1;
+      setTimeout(() => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
+      }, 80);
+    });
+
+    const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 10);
+
+    await expect(client.fetchPois({ limit: 10, offset: 0 })).rejects.toThrow(
+      "OCM request timeout after 10ms"
+    );
+    expect(requests).toBe(6);
+
+    await server.close();
+  });
 });

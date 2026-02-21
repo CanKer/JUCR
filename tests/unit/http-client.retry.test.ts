@@ -59,6 +59,29 @@ describe("OpenChargeMapHttpClient retry policy", () => {
     await server.close();
   });
 
+  it("retries on transient network errors and eventually succeeds", async () => {
+    let requests = 0;
+    const server = await startServer((_req, res) => {
+      requests += 1;
+      if (requests < 3) {
+        // Simulate a low-level socket failure so fetch throws (network error path).
+        res.socket?.destroy();
+        return;
+      }
+
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
+    });
+
+    const client = new OpenChargeMapHttpClient(server.baseUrl, "test");
+    const pois = await client.fetchPois({ limit: 10, offset: 0 });
+
+    expect(pois).toHaveLength(1);
+    expect(requests).toBe(3);
+
+    await server.close();
+  });
+
   it("retries on 429", async () => {
     let requests = 0;
     const server = await startServer((_req, res) => {

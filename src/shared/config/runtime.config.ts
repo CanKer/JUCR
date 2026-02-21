@@ -1,7 +1,8 @@
 import {
   defaultImporterConfig,
+  importerCaps,
+  resolveImporterConfig,
   type ImporterConfig,
-  validateImporterConfig
 } from "../../application/import-pois/importer.config";
 
 export const runtimeCaps = {
@@ -29,25 +30,17 @@ const parseOptionalIntInRange = (
   return value;
 };
 
-const parseOptionalNonNegativeInteger = (env: NodeJS.ProcessEnv, name: string): number | undefined => {
-  const raw = env[name];
-  if (raw == null || raw.trim() === "") return undefined;
-
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${name}=${raw} is out of allowed range [0..${Number.MAX_SAFE_INTEGER}]`);
-  }
-
-  return value;
-};
-
 export const loadRuntimeConfigFromEnv = (env: NodeJS.ProcessEnv = process.env): RuntimeConfig => {
-  const importerConfig = validateImporterConfig({
+  const importerConfig = resolveImporterConfig({
     ...defaultImporterConfig,
-    concurrency: parseOptionalIntInRange(env, "IMPORT_CONCURRENCY", { min: 1, max: 50 }) ?? defaultImporterConfig.concurrency,
-    pageSize: parseOptionalIntInRange(env, "IMPORT_PAGE_SIZE", { min: 1, max: 500 }) ?? defaultImporterConfig.pageSize,
-    maxPages: parseOptionalIntInRange(env, "IMPORT_MAX_PAGES", { min: 1, max: 100000 }) ?? defaultImporterConfig.maxPages,
-    startOffset: parseOptionalNonNegativeInteger(env, "IMPORT_START_OFFSET") ?? defaultImporterConfig.startOffset,
+    concurrency:
+      parseOptionalIntInRange(env, "IMPORT_CONCURRENCY", importerCaps.concurrency) ?? defaultImporterConfig.concurrency,
+    pageSize:
+      parseOptionalIntInRange(env, "IMPORT_PAGE_SIZE", importerCaps.pageSize) ?? defaultImporterConfig.pageSize,
+    maxPages:
+      parseOptionalIntInRange(env, "IMPORT_MAX_PAGES", importerCaps.maxPages) ?? defaultImporterConfig.maxPages,
+    startOffset:
+      parseOptionalIntInRange(env, "IMPORT_START_OFFSET", importerCaps.startOffset) ?? defaultImporterConfig.startOffset,
     dataset: env.IMPORT_DATASET?.trim() ? env.IMPORT_DATASET : undefined,
     modifiedSince: env.IMPORT_MODIFIED_SINCE?.trim() ? env.IMPORT_MODIFIED_SINCE : undefined
   });

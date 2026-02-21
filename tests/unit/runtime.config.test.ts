@@ -39,6 +39,10 @@ describe("runtime config caps", () => {
       message: "IMPORT_MAX_PAGES=100001 is out of allowed range [1..100000]"
     },
     {
+      env: { IMPORT_START_OFFSET: "-1" },
+      message: `IMPORT_START_OFFSET=-1 is out of allowed range [0..${Number.MAX_SAFE_INTEGER}]`
+    },
+    {
       env: { OCM_TIMEOUT_MS: "999" },
       message: "OCM_TIMEOUT_MS=999 is out of allowed range [1000..30000]"
     }

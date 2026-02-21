@@ -679,4 +679,21 @@ Details:
 - verifies pagination starts from a non-zero offset and advances deterministically.
 
 #### E1.2 - `feat(import): add startOffset and maxPages guardrails to importer config`
-Status: `IN_PROGRESS`
+Status: `DONE`  
+Commits: `feat(import): add startOffset and maxPages guardrails to importer config`  
+Paths:
+- `src/application/import-pois/importer.config.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/shared/config/runtime.config.ts`
+- `tests/unit/importPois.pagination.edge.test.ts`
+- `tests/unit/runtime.config.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added `resolveImporterConfig()` to apply safe defaults and centralized validation in one place.
+- `importPois` now resolves config guardrails before running and enforces `maxPages` via explicit loop guard.
+- Extended importer caps with explicit `startOffset` range limits.
+- Updated runtime env parsing to reuse importer caps for `startOffset`, `maxPages`, and related pagination inputs.
+- Added tests proving:
+- safe defaults apply when `startOffset` and `maxPages` are omitted,
+- invalid `IMPORT_START_OFFSET` values fail fast with clear range errors.

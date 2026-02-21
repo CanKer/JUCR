@@ -109,4 +109,18 @@ describe("importPois pagination edge guardrails", () => {
     expect(state.pageSizes).toEqual([5, 5, 3]);
     expect(state.calls.map((call) => call.offset)).toEqual([10, 15, 20]);
   });
+
+  it("applies safe defaults when startOffset and maxPages are omitted", async () => {
+    const { client, state } = createFiniteClient(12);
+
+    await importPois({
+      client,
+      repo: createNoopRepo(),
+      config: { pageSize: 5, concurrency: 2 }
+    });
+
+    expect(state.calls[0]?.offset).toBe(0);
+    expect(state.calls.map((call) => call.offset)).toEqual([0, 5, 10]);
+    expect(state.pageSizes).toEqual([5, 5, 2]);
+  });
 });

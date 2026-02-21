@@ -652,3 +652,31 @@ Details:
 
 Pending Phase D items:
 - None.
+
+---
+
+## PHASE E - Score-100 Hardening (Phase 2 alignment)
+
+Overall status: `IN_PROGRESS`  
+Plan reference: `docs/ROADMAP.md` (PHASE E section)
+
+### E1 - Pagination guardrails (no infinite loops)
+
+#### E1.1 - `test(import): add pagination edge cases (exact-multiple, maxPages cut)`
+Status: `DONE`  
+Commits: `test(import): add pagination edge cases (exact-multiple, maxPages cut)`  
+Paths:
+- `tests/unit/importPois.pagination.edge.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added dedicated pagination edge-case tests using an in-memory OpenChargeMap client stub (no Mongo dependency).
+- Exact-multiple termination:
+- verifies fetch sequence `(10, 10, 0)` for `total=20`, `pageSize=10`.
+- `maxPages` cut:
+- verifies importer stops after `maxPages` when API keeps returning full pages.
+- `startOffset`:
+- verifies pagination starts from a non-zero offset and advances deterministically.
+
+#### E1.2 - `feat(import): add startOffset and maxPages guardrails to importer config`
+Status: `IN_PROGRESS`

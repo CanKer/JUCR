@@ -976,3 +976,20 @@ Details:
 - Expanded README with an explicit architectural-tradeoffs note and links to scaling/ADR docs.
 - Refined `docs/SCALING.md` to describe a practical multi-worker path with job-shard modeling.
 - Expanded ADR-0002 with alternatives considered and explicit consequences of deferring distributed scheduler implementation.
+
+### X4 - `feat(poi): make validation strict only for ID and tolerate optional fields`
+Status: `DONE`  
+Commits: `feat(poi): make validation strict only for ID and tolerate optional fields`  
+Paths:
+- `src/core/poi/transformPoi.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/import.error-handler.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Tightened POI validation so only `raw.ID` is required for import.
+- Added support for numeric string IDs (`"123"`) converted to integer `externalId`.
+- Rejects invalid IDs with explicit reasons (`missing ID`, `ID is not numeric`, `ID must be a positive integer`).
+- Made `DateLastStatusUpdate` fully optional: missing or invalid values now result in `lastUpdated: undefined` without throwing.
+- Kept raw payload pass-through behavior unchanged.

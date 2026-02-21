@@ -1009,3 +1009,21 @@ Details:
 - POIs with valid IDs and invalid `DateLastStatusUpdate` are still imported.
 - POIs without ID are skipped.
 - Run summary reports `processed=2`, `skippedInvalid=1`, and correct skipped counters.
+
+### X6 - `docs(runbooks): add operations, observability, security, and input contract guides`
+Status: `DONE`  
+Commits: `docs(runbooks): add operations, observability, security, and input contract guides`  
+Paths:
+- `docs/OPERATIONS.md`
+- `docs/OBSERVABILITY.md`
+- `docs/SECURITY.md`
+- `docs/CONTRACT.md`
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added operations guide with execution, failure handling, and production checklist.
+- Added observability guide with logging boundaries, recommended metrics, and alerting signals.
+- Added security guide documenting validation scope, retry safety, guardrails, and non-goals.
+- Added POI input contract describing strict ID requirements and optional-field tolerance.
+- Added README links for quick navigation to the new operational documentation.

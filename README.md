@@ -116,3 +116,10 @@ The goal of this challenge is to demonstrate:
 Not to introduce unnecessary distributed infrastructure.
 
 See docs/SCALING.md for the full horizontal scaling plan.
+
+## Operational Docs
+
+- `docs/OPERATIONS.md`
+- `docs/OBSERVABILITY.md`
+- `docs/SECURITY.md`
+- `docs/CONTRACT.md`

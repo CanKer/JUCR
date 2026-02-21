@@ -1,6 +1,21 @@
 import http from "http";
 import type { AddressInfo } from "net";
+import type { RetryOptions } from "../../src/shared/retry/retry";
 import { OpenChargeMapHttpClient } from "../../src/infrastructure/openchargemap/OpenChargeMapHttpClient";
+
+jest.mock("../../src/shared/retry/retry", () => {
+  const actual = jest.requireActual("../../src/shared/retry/retry") as typeof import("../../src/shared/retry/retry");
+  return {
+    ...actual,
+    retry: <T>(fn: () => Promise<T>, opts: RetryOptions) =>
+      actual.retry(fn, {
+        ...opts,
+        minDelayMs: 20,
+        maxDelayMs: 80,
+        jitterRatio: 0
+      })
+  };
+});
 
 type TestServer = {
   baseUrl: string;

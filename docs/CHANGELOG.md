@@ -1068,3 +1068,16 @@ Details:
 - Synced operations env-var guidance with current runtime config (required vs optional values).
 - Repaired and completed `docs/SCALING.md` (previously truncated Markdown block) with partitioning, leasing, distributed rate limiting, and idempotency boundaries.
 - Replaced `.env.example` real API key with safe placeholder and aligned entries to supported runtime variables.
+
+### X9 - `test(perf): speed up slow http client unit tests without changing runtime behavior`
+Status: `DONE`  
+Commits: `test(perf): speed up slow http client unit tests with test-scoped retry backoff`  
+Paths:
+- `tests/unit/http-client.request-shape.test.ts`
+- `tests/unit/http-client.timeout.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Optimized slow HTTP client tests by overriding retry backoff values only inside test scope.
+- Preserved retry semantics and request-count assertions.
+- No runtime code or production retry behavior was changed.

@@ -856,3 +856,35 @@ Details:
 - unique index on `externalId`,
 - `bulkWrite` + `updateOne` + `upsert` strategy,
 - batch dedupe behavior for duplicate `externalId` inputs.
+
+### E6 - Horizontal scaling + performance docs
+
+#### E6.15 - `docs: add SCALING.md (partitioning, leasing, distributed rate limit)`
+Status: `DONE`  
+Commits: `docs: refresh phase E6 scaling and performance guidance`  
+Paths:
+- `docs/SCALING.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added concise horizontal scaling guidance aligned with current architecture.
+- Covers:
+- deterministic partitioning (`bbox`, `country`, `time windows`),
+- lease/claim workflow for multi-worker safety,
+- distributed token-bucket rate limiting in Redis,
+- and why idempotent writes help but do not eliminate duplicate outbound requests.
+
+#### E6.16 - `docs: add PERFORMANCE.md (bulkWrite, concurrency tradeoffs, complexity)`
+Status: `DONE`  
+Commits: `docs: refresh phase E6 scaling and performance guidance`  
+Paths:
+- `docs/PERFORMANCE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Updated performance notes to be practical and code-aligned:
+- `bulkWrite` benefits,
+- in-batch dedupe impact,
+- `pageSize` and `concurrency` tradeoffs,
+- per-page and per-run complexity,
+- and recommended defaults from current runtime configuration.

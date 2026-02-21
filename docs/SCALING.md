@@ -1,44 +1,44 @@
 # Horizontal Scaling Strategy
 
-This document describes how the current POI importer can scale to millions of records and multiple workers without changing core domain boundaries.
+This importer currently runs as a single worker. The strategy below scales it horizontally without changing domain boundaries.
 
-## 1) Work partitioning
+## 1) Partitioning model
 
-Use deterministic partitions so workers can process in parallel with low overlap:
+Use deterministic partitions so multiple workers can run concurrently with minimal overlap.
 
-- Time windows: split by `[from, to)` using fixed window sizes (for incremental imports).
-- Geographic shards: split by country or bounding boxes when full refresh is required.
-- Hybrid approach: shard by geography, then process time windows per shard.
+- Time windows: process fixed `[from, to)` intervals for incremental imports.
+- Geographic shards: split by country code or bbox ranges for full imports.
+- Hybrid: shard by geography first, then paginate by time windows per shard.
 
-Key rule: each partition must have a stable unique key so jobs are idempotent at scheduling level.
+Partition IDs must be stable (same inputs -> same partition key) so retries and re-claims remain safe.
 
 ## 2) Job leasing / claiming
 
-Use a shared `import_windows` collection (or equivalent queue) with statuses like `pending`, `leased`, `done`, `failed`.
+Use a shared job store (for example `import_windows`) with lease metadata.
 
-- Workers claim jobs atomically (`findOneAndUpdate`) and set `lease.owner` + `lease.until`.
-- Expired leases are reclaimable, so crashed workers do not block progress.
-- Retries increment attempt counters and keep error metadata for observability.
+- Candidate statuses: `pending`, `leased`, `done`, `failed`.
+- Claim operation: atomic `findOneAndUpdate` sorted by oldest partition.
+- Lease fields: `owner`, `until`, `attempt`.
+- Recovery: expired leases return to the candidate pool.
 
-This avoids duplicate processing of the same partition at the same time.
+This ensures one active worker per partition while still allowing crash recovery.
 
 ## 3) Distributed rate limiting
 
-Per-process retry/backoff is not enough when many workers run concurrently. Add a distributed token bucket in Redis:
+Per-process backoff is not enough when many workers run at once. Add a Redis token bucket.
 
-- Shared bucket key per upstream API (or per API key).
-- Before each request, workers consume one token.
-- If no token is available, workers wait until refill time.
-- Refill rate is tuned to provider limits and adjusted by environment.
+- Key scope: per upstream API key (or per API + region).
+- Request rule: consume one token before outbound call.
+- Empty bucket: wait until refill window.
+- Refill policy: tuned to provider quotas.
 
-This keeps global request volume under provider limits across all workers.
+Result: global request rate stays bounded across all workers.
 
-## 4) Idempotency and duplicate requests
+## 4) Why idempotent writes still matter
 
-Idempotent DB upserts make retries safe at storage level:
+Current storage writes are idempotent (`externalId` unique + upsert), which helps with retries:
 
-- Re-importing the same POI key updates existing records instead of creating duplicates.
-- Partial failures can be retried without corrupting state.
+- Re-running a successful partition does not create duplicates.
+- Partial failures can be replayed safely.
 
-However, idempotent upserts do not prevent duplicate HTTP requests across workers. Without proper partition leasing and distributed rate limiting, multiple workers can still fetch the same external data, increasing cost and rate-limit pressure.
-
+But idempotent writes do not prevent duplicated outbound requests. Leasing + distributed rate limiting are still required to avoid waste and limit pressure.

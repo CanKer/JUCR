@@ -1,7 +1,26 @@
 import type { PoiDoc } from "../../src/ports/PoiRepository";
-import { MongoPoiRepository } from "../../src/infrastructure/mongo/MongoPoiRepository";
+import {
+  dedupePoiDocsByExternalId,
+  MongoPoiRepository
+} from "../../src/infrastructure/mongo/MongoPoiRepository";
 
 describe("MongoPoiRepository", () => {
+  it("dedupe helper keeps the last occurrence per externalId", () => {
+    const docs: PoiDoc[] = [
+      { _id: "a", externalId: 1, raw: { v: "old-1" } },
+      { _id: "b", externalId: 2, raw: { v: "only-2" } },
+      { _id: "c", externalId: 1, raw: { v: "new-1" } }
+    ];
+
+    const deduped = dedupePoiDocsByExternalId(docs);
+    expect(deduped).toHaveLength(2);
+
+    const byId = new Map(deduped.map((doc) => [doc.externalId, doc]));
+    expect(byId.get(1)?._id).toBe("c");
+    expect((byId.get(1)?.raw as { v?: string }).v).toBe("new-1");
+    expect(byId.get(2)?._id).toBe("b");
+  });
+
   it("returns early for empty batches", async () => {
     const repo = new MongoPoiRepository("mongodb://localhost:27017/jucr");
     const getCollection = jest.fn();

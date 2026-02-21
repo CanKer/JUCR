@@ -818,3 +818,41 @@ Details:
 - Backward-compatible fields are preserved:
 - `total`, `skippedInvalid`, `skippedByCode`.
 - Import completion log remains structured JSON (`event: "import.completed"`).
+
+### E5 - Storage hardening (batch dedupe + docs)
+
+#### E5.12 - `test(repo): handle duplicate externalIds within a batch`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `tests/unit/mongo-poi-repository.test.ts`
+
+Details:
+- Added unit test for pure dedupe helper behavior (no real Mongo required).
+- Verifies duplicate `externalId` records keep the last occurrence.
+- Existing mocked `bulkWrite` test continues verifying repository-level behavior end to end.
+
+#### E5.13 - `feat(repo): dedupe externalIds before bulkWrite upsert`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `src/infrastructure/mongo/MongoPoiRepository.ts`
+
+Details:
+- Introduced explicit helper `dedupePoiDocsByExternalId`.
+- Repository `upsertMany()` now uses that helper before `bulkWrite`.
+- Dedupe strategy: last occurrence per `externalId` wins inside a batch.
+
+#### E5.14 - `docs: add DATABASE.md (schema, indexes, upsert strategy)`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `docs/DATABASE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added concise database documentation aligned with current implementation:
+- collection name and stored fields,
+- unique index on `externalId`,
+- `bulkWrite` + `updateOne` + `upsert` strategy,
+- batch dedupe behavior for duplicate `externalId` inputs.

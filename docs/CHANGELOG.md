@@ -950,3 +950,15 @@ Details:
 - Added repository contract for leasing workflow:
 - `claimNextJob`, `renewLease`, `markDone`, `markFailed`.
 - No runtime importer wiring changed; this is type-level scaffolding only.
+
+### X2 - `docs: add ADR for not implementing distributed scheduler`
+Status: `DONE`  
+Commits: `docs: add ADR for not implementing distributed scheduler`  
+Paths:
+- `docs/ADR-0002-distributed-scheduler.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added ADR explaining why distributed scheduler runtime behavior is intentionally not implemented in challenge scope.
+- Documents context, decision, rationale, and consequences.
+- Clarifies that current execution remains single-worker while scaling design remains prepared through interfaces and docs.

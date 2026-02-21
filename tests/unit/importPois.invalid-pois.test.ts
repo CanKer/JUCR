@@ -158,6 +158,67 @@ describe("importPois invalid POI handling", () => {
     });
   });
 
+  it("imports valid IDs even when one POI has invalid DateLastStatusUpdate", async () => {
+    const pages = [
+      [
+        { ID: 200, DateLastStatusUpdate: "not-a-date", AddressInfo: { Title: "POI A" } },
+        { AddressInfo: { Title: "POI B missing id" } },
+        { ID: 201, DateLastStatusUpdate: "2026-02-20T10:30:00.000Z", AddressInfo: { Title: "POI C" } }
+      ],
+      []
+    ];
+    let fetchCount = 0;
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => pages[fetchCount++] ?? []
+    };
+
+    const { repo, batches } = createCapturingRepo();
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, pageSize: 3, concurrency: 2 }
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchCount).toBe(2);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const skipLog = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    expect(skipLog).toEqual({
+      event: "import.poi_skipped",
+      reason: "Invalid POI: missing ID",
+      offset: 0,
+      pageSize: 3,
+      skippedCount: 1
+    });
+
+    expect(batches).toHaveLength(1);
+    expect(batches[0].map((doc) => doc.externalId)).toEqual([200, 201]);
+    expect(batches[0][0]?.lastUpdated).toBeUndefined();
+    expect(batches[0][1]?.lastUpdated?.toISOString()).toBe("2026-02-20T10:30:00.000Z");
+
+    const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+      event: string;
+      processed: number;
+      skipped: number;
+      pagesProcessed: number;
+      total: number;
+      skippedInvalid: number;
+      skippedByCode?: { invalid_poi?: number };
+    };
+    expect(completion).toEqual({
+      event: "import.completed",
+      processed: 2,
+      skipped: 1,
+      pagesProcessed: 1,
+      total: 2,
+      skippedInvalid: 1,
+      skippedByCode: { invalid_poi: 1 }
+    });
+  });
+
   it("fails the import for non-POI-validation errors", async () => {
     const client: OpenChargeMapClient = {
       fetchPois: async () => [{ ID: 1, AddressInfo: { Title: "POI 1" } }]

@@ -8,7 +8,7 @@ describe("transformPoi", () => {
     expect(poi._id.length).toBeGreaterThan(10);
   });
 
-  it("accepts numeric string IDs and converts them to integer", () => {
+  it("accepts numeric string ID and converts to number", () => {
     const poi = transformPoi({ ID: "123", AddressInfo: { Title: "X" } });
     expect(poi.externalId).toBe(123);
   });
@@ -26,11 +26,11 @@ describe("transformPoi", () => {
     expect(poi.raw).toBe(raw);
   });
 
-  it("throws if ID is missing", () => {
+  it("throws InvalidPoiError when ID is missing", () => {
     expect(() => transformPoi({} as any)).toThrow(new InvalidPoiError("Invalid POI: missing ID"));
   });
 
-  it("throws InvalidPoiError when ID cannot be coerced to number", () => {
+  it("throws InvalidPoiError when ID is non-numeric", () => {
     expect(() => transformPoi({ ID: Symbol("bad") } as any)).toThrow(new InvalidPoiError("Invalid POI: ID is not numeric"));
     expect(() => transformPoi({ ID: "not-a-number" } as any)).toThrow(new InvalidPoiError("Invalid POI: ID is not numeric"));
   });
@@ -52,12 +52,17 @@ describe("transformPoi", () => {
     expect(poi.lastUpdated?.toISOString()).toBe("2026-02-20T10:30:00.000Z");
   });
 
-  it("leaves lastUpdated undefined when date is invalid", () => {
+  it("does NOT throw when DateLastStatusUpdate is invalid; lastUpdated is undefined", () => {
+    expect(() =>
+      transformPoi({
+        ID: 51,
+        DateLastStatusUpdate: "not-a-date"
+      } as any)
+    ).not.toThrow();
     const poi = transformPoi({
       ID: 51,
       DateLastStatusUpdate: "not-a-date"
     } as any);
-
     expect(poi.lastUpdated).toBeUndefined();
   });
 

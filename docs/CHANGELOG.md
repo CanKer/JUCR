@@ -993,3 +993,19 @@ Details:
 - Rejects invalid IDs with explicit reasons (`missing ID`, `ID is not numeric`, `ID must be a positive integer`).
 - Made `DateLastStatusUpdate` fully optional: missing or invalid values now result in `lastUpdated: undefined` without throwing.
 - Kept raw payload pass-through behavior unchanged.
+
+### X5 - `test(poi): ensure only ID is strict and invalid dates are tolerated`
+Status: `DONE`  
+Commits: `test(poi): ensure only ID is strict and invalid dates are tolerated`  
+Paths:
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Aligned transform unit tests with strict-ID policy requirements.
+- Added explicit assertions for missing/non-numeric IDs, numeric-string conversion, and invalid-date tolerance.
+- Added importer-level unit test proving that:
+- POIs with valid IDs and invalid `DateLastStatusUpdate` are still imported.
+- POIs without ID are skipped.
+- Run summary reports `processed=2`, `skippedInvalid=1`, and correct skipped counters.

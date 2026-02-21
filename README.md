@@ -2,37 +2,50 @@
 
 Node.js/TypeScript importer that fetches POIs from OpenChargeMap and upserts them into MongoDB.
 
-## What This Repo Includes
-
-- Hexagonal-ish folder structure
-- Native `fetch` HTTP client with retry helper
-- MongoDB bulk upsert repository (`externalId` unique)
-- Fake OpenChargeMap server for deterministic E2E scenarios
-- Unit and E2E tests with Jest
-- GitHub Actions CI (`lint`, `typecheck`, `build`, `unit`, `e2e`)
-- Docker Compose for local MongoDB
-
 ## Quick Start
 
 ```bash
-npm i
-docker compose up -d
-npm run lint
-npm run typecheck
-npm run test:unit
-npm run test:e2e:local
+nvm use
+npm ci
+docker compose up -d mongo
+npm run check
 ```
 
-## Local Import Run
+## Run Modes
 
-1. Build and start fake OCM server:
+Quality checks:
+
+- `npm run check` -> `lint + typecheck + unit tests`
+- `npm run check:e2e` -> `REQUIRE_MONGO_E2E=1 npm run test:e2e`
+
+Test execution:
+
+- `npm run test:unit`: unit-only suite.
+- `npm run test:e2e`: e2e project only (auto-starts fake OCM server).
+- E2E tests run only when `REQUIRE_MONGO_E2E=1`.
+
+Example local E2E command:
+
+```bash
+REQUIRE_MONGO_E2E=1 \
+MONGO_URI=mongodb://127.0.0.1:27017/jucr \
+OCM_BASE_URL=http://127.0.0.1:3999 \
+OCM_API_KEY=test \
+npm run test:e2e
+```
+
+For E2E you need:
+
+1. Mongo running (for example `docker compose up -d mongo`)
+
+## Local Import Run
 
 ```bash
 npm run build
 npm run start:fake-ocm
 ```
 
-2. In another terminal, run importer:
+In another terminal:
 
 ```bash
 MONGO_URI=mongodb://127.0.0.1:27017/jucr \
@@ -41,64 +54,86 @@ OCM_API_KEY=test \
 node dist/src/cli/import.js
 ```
 
-## Commands
-
-- `npm run dev` - run local HTTP server (`dist/src/server.js`)
-- `npm run build` - compile TypeScript to `dist/`
-- `npm run lint` - lint `src/` and `tests/`
-- `npm run typecheck` - TypeScript no-emit check
-- `npm run test:unit` - unit tests
-- `npm run test:e2e` - E2E tests (requires MongoDB and fake OCM server running)
-- `npm run test:e2e:local` - local E2E wrapper (starts Mongo if needed, runs fake OCM + E2E, cleans up resources it started)
-- `npm run start:fake-ocm` - start local fake OpenChargeMap server
-
 ## Environment Variables
 
-- `MONGO_URI` (default: `mongodb://localhost:27017/jucr`)
-- `OCM_BASE_URL` (default: `https://api.openchargemap.io/v3`)
-- `OCM_API_KEY` (default: empty string)
-- `FAKE_OCM_PORT` (default: `3999`)
+| Variable | Default | Purpose |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017/jucr` | Mongo connection string |
+| `OCM_BASE_URL` | `https://api.openchargemap.io/v3` | Base URL for OpenChargeMap API |
+| `OCM_API_KEY` | `""` | API key header value |
+| `OCM_TIMEOUT_MS` | `8000` | HTTP request timeout (ms) |
+| `IMPORT_CONCURRENCY` | `10` | Transform concurrency per page |
+| `IMPORT_PAGE_SIZE` | `100` | Fetch page size |
+| `IMPORT_MAX_PAGES` | `1000` | Max pages per run (guardrail) |
+| `IMPORT_START_OFFSET` | `0` | Initial offset for paging |
+| `IMPORT_DATASET` | unset | Dataset selector (test/fake-server scenarios) |
+| `IMPORT_MODIFIED_SINCE` | unset | Optional modified-since filter |
+| `FAKE_OCM_PORT` | `3999` | Fake OCM server listen port |
+| `REQUIRE_MONGO_E2E` | unset | When `1`, enables Mongo-backed E2E tests |
 
-Use `.env.example` as the local template.
+Use `.env.example` as baseline local template.
 
-## CI
+## CI Notes
 
-Workflow file: `.github/workflows/ci.yml`
+Workflow: `.github/workflows/ci.yml`
 
-CI pipeline steps:
-1. Install dependencies
-2. Lint
-3. Typecheck
-4. Build
-5. Unit tests
-6. Start fake OCM server
-7. Run E2E tests against Mongo service
+CI runs:
 
-## Local E2E Automation
+1. `npm ci`
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm run build`
+5. `npm run test:unit`
+6. `npm run test:e2e` with `REQUIRE_MONGO_E2E=1` and Mongo service
 
-Run:
+## Submission Cleanliness
 
-```bash
-npm run test:e2e:local
-```
+- Node version is pinned in `.nvmrc` (`20`).
+- `node_modules/` is ignored in `.gitignore`.
+- Build/test artifacts (`dist/`, `coverage/`, logs) are ignored from commits.
 
-Behavior:
-- Reuses existing `docker compose` Mongo service when already running.
-- Starts `mongo` service automatically when not running.
-- Starts fake OCM server automatically.
-- Runs E2E with `REQUIRE_MONGO_E2E=1`.
-- Stops fake OCM and stops Mongo only if Mongo was started by the script.
+## Architectural Tradeoffs
 
-Optional env vars:
-- `AUTO_START_DOCKER=1|0` (default: `1` on macOS attempts `open -a Docker` if daemon is down)
-- `MONGO_SERVICE` (default: `mongo`)
-- `MONGO_URI` (default: `mongodb://127.0.0.1:27017/jucr`)
-- `FAKE_OCM_PORT` (default: `3999`)
-- `OCM_BASE_URL` (default: `http://127.0.0.1:3999`)
-- `OCM_API_KEY` (default: `test`)
+This implementation intentionally does not include:
 
-## Notes
+- Distributed job leasing
+- Queue-based schedulers
+- Redis-backed global rate limiting
 
-- Runtime uses Node 20+ with native `fetch`.
-- POI `_id` is UUIDv4 generated in transformation.
-- Idempotency is enforced via `externalId` unique index plus upsert.
+These alternatives were evaluated and documented in:
+
+👉 docs/ADR-0002-distributed-scheduler.md
+
+The goal of this challenge is to demonstrate:
+
+- Correctness
+- Robust retry and pagination behavior
+- Idempotent storage
+- Production-aware extensibility
+
+Not to introduce unnecessary distributed infrastructure.
+
+See docs/SCALING.md for the full horizontal scaling plan.
+
+## Operational Docs
+
+- `docs/OPERATIONS.md`
+- `docs/OBSERVABILITY.md`
+- `docs/SECURITY.md`
+- `docs/CONTRACT.md`
+
+## Design Philosophy
+
+This implementation follows a few core engineering principles:
+
+- **Favor idempotency over orchestration**  
+  Storage safety (unique index + upsert) ensures correctness even under retries and re-execution.
+
+- **Favor bounded concurrency over maximum throughput**  
+  Concurrency is intentionally limited to protect both system resources and the external API.
+
+- **Favor tolerance over strict validation**  
+  Only the `ID` field is required. All other fields are treated as optional and preserved as-is to remain forward-compatible with OpenChargeMap schema evolution.
+
+- **Favor explicit architectural tradeoffs over hidden complexity**  
+  Distributed scheduling and global rate limiting are intentionally documented but not implemented to avoid unnecessary infrastructure complexity in this phase.

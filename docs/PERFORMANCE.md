@@ -1,68 +1,62 @@
-# PERFORMANCE
+# Performance Notes
 
-This document summarizes current performance choices for the POI importer and how to tune them safely.
+This document summarizes practical performance behavior for the current importer implementation.
 
-## Why `bulkWrite` in Mongo repository
+## 1) Why `bulkWrite` is the persistence baseline
 
-- The importer transforms each page and persists it with a single `bulkWrite` call.
-- This minimizes network round-trips compared with one write per POI.
-- Using unordered bulk operations (`ordered: false`) lets Mongo continue processing independent operations even if one fails.
-- Upsert by `externalId` keeps repeated imports idempotent at the storage layer.
+`MongoPoiRepository` writes one page with one unordered bulk operation:
 
-## Why batch dedupe exists
+- fewer DB round-trips than one write per POI,
+- better throughput at page boundaries,
+- resilient to per-document write failures with `{ ordered: false }`.
 
-- A single page can contain repeated `externalId` values.
-- The repository dedupes the page batch before `bulkWrite`.
-- This avoids conflicting upsert operations for the same key in one bulk request and reduces unnecessary writes.
+Combined with upsert-by-`externalId`, it preserves idempotent write behavior during retries.
 
-## Idempotency model (explicit)
+## 2) In-batch dedupe impact
 
-This importer is idempotent at the database write layer.
+Before writing, docs are deduped by `externalId` (last occurrence wins).
 
-- Stable write key: POIs are upserted by `externalId` with a unique index.
-- Insert path: first write creates the document (`$setOnInsert` keeps the inserted `_id`).
-- Update path: later writes for the same `externalId` update fields instead of creating duplicates.
-- In-batch dedupe: if one page includes the same `externalId` multiple times, only the latest item in the page is written.
+- avoids conflicting upserts for duplicate keys in the same page,
+- reduces unnecessary update workload,
+- keeps write behavior deterministic per page.
 
-What this guarantees:
+## 3) Concurrency and page size tradeoffs
 
-- Re-importing the same dataset keeps one document per `externalId`.
-- Retrying a failed page is safe for persistence correctness.
-- Update imports overwrite existing payload fields for matching keys.
+`pageSize`:
 
-What this does not guarantee:
+- larger page: fewer HTTP calls and fewer bulk writes, but higher memory and larger retry blast radius,
+- smaller page: lower memory and quicker failure recovery, but more request overhead.
 
-- It does not prevent duplicate upstream HTTP requests in multi-worker setups.
-- It does not provide global exactly-once delivery across distributed workers by itself.
-- It does not replace partition leasing/rate limiting for horizontal scaling.
+`concurrency` (transform fan-out only):
 
-## `pageSize` tradeoffs
+- higher values can improve throughput for CPU-heavy transforms,
+- too high increases CPU/GC pressure and can flatten gains.
 
-- Larger `pageSize`:
-- Fewer HTTP requests and fewer Mongo write calls.
-- Higher memory use per page and larger retry blast radius when a page fails.
-- Smaller `pageSize`:
-- Lower memory use and faster recovery for failed pages.
-- More request overhead and more write operations.
+## 4) Complexity (current model)
 
-Practical default: keep `pageSize` moderate, then tune after measuring CI/local run times.
+Per page:
 
-## `concurrency` tradeoffs
+- transform stage: `O(n)` for `n = pageSize`,
+- dedupe stage: `O(n)` using a hash map,
+- write stage: `O(k)` operations where `k <= n` (unique externalIds in page).
 
-- Concurrency only controls transformation fan-out before persistence.
-- Higher concurrency can improve throughput when transform cost is non-trivial.
-- Very high concurrency can increase CPU pressure and GC overhead with little gain.
-- Lower concurrency is more predictable and easier to debug.
+Per run:
 
-Use the smallest value that meets import-time targets.
+- approximately linear in imported records: `O(totalRecords)`.
 
-## Horizontal scaling (conceptual)
+## 5) Recommended defaults (current code)
 
-Current implementation is single-runner. To scale horizontally in future phases:
+From the current runtime defaults:
 
-- Split import ranges into deterministic windows.
-- Use Mongo leases for window ownership.
-- Keep POI upserts idempotent by stable unique key.
-- Advance global cursor only after all windows up to boundary are done.
+- `concurrency = 10`
+- `pageSize = 100`
+- `maxPages = 1000`
+- `startOffset = 0`
+- HTTP timeout = `8000ms`
 
-This preserves correctness while enabling multi-worker throughput.
+Suggested tuning flow:
+
+1. keep defaults for baseline stability,
+2. increase `pageSize` gradually while watching memory and retry cost,
+3. increase `concurrency` only while throughput scales,
+4. keep safety caps enabled to avoid accidental overload.

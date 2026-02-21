@@ -1,44 +1,70 @@
 # Horizontal Scaling Strategy
 
-This document describes how the current POI importer can scale to millions of records and multiple workers without changing core domain boundaries.
+The current importer is single-worker, but the architecture is prepared for multi-worker scaling.
 
-## 1) Work partitioning
+Current properties that make scaling feasible:
 
-Use deterministic partitions so workers can process in parallel with low overlap:
+- Stateless importer runtime
+- Idempotent writes (`externalId` unique + upsert)
+- Bounded retry and pagination guardrails
+- Clear port boundaries for introducing orchestration components
 
-- Time windows: split by `[from, to)` using fixed window sizes (for incremental imports).
-- Geographic shards: split by country or bounding boxes when full refresh is required.
-- Hybrid approach: shard by geography, then process time windows per shard.
+## 1. Partitioning Model
 
-Key rule: each partition must have a stable unique key so jobs are idempotent at scheduling level.
+To scale to high volume, split the workload into deterministic shards:
 
-## 2) Job leasing / claiming
+- Geographic shards (country or bbox ranges)
+- Time-window shards (`[from, to)` on `DateLastStatusUpdate`)
+- Hybrid (geography first, then windows)
 
-Use a shared `import_windows` collection (or equivalent queue) with statuses like `pending`, `leased`, `done`, `failed`.
+Shard identity must be stable so retries and reassignment remain idempotent.
 
-- Workers claim jobs atomically (`findOneAndUpdate`) and set `lease.owner` + `lease.until`.
-- Expired leases are reclaimable, so crashed workers do not block progress.
-- Retries increment attempt counters and keep error metadata for observability.
+## 2. Job Leasing / Claiming
 
-This avoids duplicate processing of the same partition at the same time.
+Use a shared job store with atomic lease acquisition.
 
-## 3) Distributed rate limiting
+Example conceptual job document:
 
-Per-process retry/backoff is not enough when many workers run concurrently. Add a distributed token bucket in Redis:
+```json
+{
+  "jobId": "uuid",
+  "shardKey": "country:DE|window:2026-02-21T00:00:00Z..2026-02-21T01:00:00Z",
+  "status": "pending",
+  "leaseOwner": null,
+  "leaseUntil": null,
+  "attempts": 0,
+  "cursor": { "startOffset": 0, "maxPages": 100 },
+  "lastErrorCode": null,
+  "lastErrorAt": null
+}
+```
 
-- Shared bucket key per upstream API (or per API key).
-- Before each request, workers consume one token.
-- If no token is available, workers wait until refill time.
-- Refill rate is tuned to provider limits and adjusted by environment.
+Workers should:
 
-This keeps global request volume under provider limits across all workers.
+1. Atomically claim one pending/expired-lease job.
+2. Renew lease while processing.
+3. Mark `done` or `failed` with attempt metadata.
 
-## 4) Idempotency and duplicate requests
+This avoids duplicate active processing of the same shard.
 
-Idempotent DB upserts make retries safe at storage level:
+## 3. Distributed Rate Limiting
 
-- Re-importing the same POI key updates existing records instead of creating duplicates.
-- Partial failures can be retried without corrupting state.
+When multiple workers run, local backoff is not enough.
 
-However, idempotent upserts do not prevent duplicate HTTP requests across workers. Without proper partition leasing and distributed rate limiting, multiple workers can still fetch the same external data, increasing cost and rate-limit pressure.
+Recommended approach:
 
+- Global token bucket in Redis keyed by API key/provider
+- Atomic token consumption (for example via Lua script)
+- Workers wait when the shared budget is exhausted
+
+This keeps aggregate outbound request rate within provider limits.
+
+## 4. Idempotency Boundaries
+
+Idempotent DB writes make retries safe:
+
+- Replaying a page does not create duplicates.
+- Partial failures can be retried safely.
+
+But idempotent writes do not prevent duplicated outbound HTTP requests across workers.  
+Leasing + distributed rate limiting are still required for efficient horizontal scale.

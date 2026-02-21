@@ -8,7 +8,7 @@ import { InvalidPoiError } from "../../src/core/poi/transformPoi";
 
 describe("import.error-handler", () => {
   it("classifies InvalidPoiError as skip with structured log payload", () => {
-    const decision = classifyTransformFailure(new InvalidPoiError("Invalid POI: missing numeric ID"), {
+    const decision = classifyTransformFailure(new InvalidPoiError("Invalid POI: missing ID"), {
       page: 2,
       offset: 10,
       pageSize: 25,
@@ -20,7 +20,7 @@ describe("import.error-handler", () => {
       expect(decision.code).toBe("invalid_poi");
       expect(decision.log).toEqual({
         event: "import.poi_skipped",
-        reason: "Invalid POI: missing numeric ID",
+        reason: "Invalid POI: missing ID",
         offset: 10,
         pageSize: 25
       });
@@ -88,8 +88,10 @@ describe("import.error-handler", () => {
 
     expect(tracker.nextPageNumber()).toBe(3);
     expect(tracker.summary()).toEqual({
-      total: 12,
+      processed: 12,
+      skipped: 2,
       pagesProcessed: 2,
+      total: 12,
       skippedInvalid: 2,
       skippedByCode: { invalid_poi: 2 }
     });

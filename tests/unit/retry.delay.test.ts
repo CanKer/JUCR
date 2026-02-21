@@ -65,4 +65,54 @@ describe("retry custom delay", () => {
 
     expect(delays).toEqual([5, 10]);
   });
+
+  it("falls back to exponential delay when custom delay is non-finite", async () => {
+    let attempts = 0;
+    const delays: number[] = [];
+
+    await retry(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("retry-me");
+      }
+      return "ok";
+    }, {
+      retries: 3,
+      minDelayMs: 4,
+      maxDelayMs: 10,
+      shouldRetry: () => ({ retry: true, delayMs: Number.POSITIVE_INFINITY }),
+      randomFn: () => 0,
+      onRetry: ({ delayMs }) => {
+        delays.push(delayMs);
+      }
+    });
+
+    expect(attempts).toBe(2);
+    expect(delays).toEqual([4]);
+  });
+
+  it("caps custom delay to maxDelayMs", async () => {
+    let attempts = 0;
+    const delays: number[] = [];
+
+    await retry(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("retry-me");
+      }
+      return "ok";
+    }, {
+      retries: 3,
+      minDelayMs: 1,
+      maxDelayMs: 10,
+      shouldRetry: () => ({ retry: true, delayMs: 999 }),
+      randomFn: () => 0,
+      onRetry: ({ delayMs }) => {
+        delays.push(delayMs);
+      }
+    });
+
+    expect(attempts).toBe(2);
+    expect(delays).toEqual([10]);
+  });
 });

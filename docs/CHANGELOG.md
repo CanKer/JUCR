@@ -7,7 +7,7 @@ Conventions:
 - `Commits`: commit SHAs where the work was implemented
 - `Paths`: key files affected by each item
 
-Last updated: 2026-02-20
+Last updated: 2026-02-21
 
 ---
 
@@ -673,3 +673,460 @@ Details:
 
 Pending Phase D items:
 - None.
+
+---
+
+## PHASE E - Maintenance & Reliability Improvements
+
+Overall status: `IN_PROGRESS`  
+Plan reference: `docs/ROADMAP.md` (PHASE E section)
+
+Naming update:
+- Phase E title was aligned with implementation scope in roadmap updates, moving from a score-based label to maintenance/reliability wording.
+
+### E1 - Pagination guardrails (no infinite loops)
+
+#### E1.1 - `test(import): add pagination edge cases (exact-multiple, maxPages cut)`
+Status: `DONE`  
+Commits: `test(import): add pagination edge cases (exact-multiple, maxPages cut)`  
+Paths:
+- `tests/unit/importPois.pagination.edge.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added dedicated pagination edge-case tests using an in-memory OpenChargeMap client stub (no Mongo dependency).
+- Exact-multiple termination:
+- verifies fetch sequence `(10, 10, 0)` for `total=20`, `pageSize=10`.
+- `maxPages` cut:
+- verifies importer stops after `maxPages` when API keeps returning full pages.
+- `startOffset`:
+- verifies pagination starts from a non-zero offset and advances deterministically.
+
+#### E1.2 - `feat(import): add startOffset and maxPages guardrails to importer config`
+Status: `DONE`  
+Commits: `feat(import): add startOffset and maxPages guardrails to importer config`  
+Paths:
+- `src/application/import-pois/importer.config.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/shared/config/runtime.config.ts`
+- `tests/unit/importPois.pagination.edge.test.ts`
+- `tests/unit/runtime.config.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added `resolveImporterConfig()` to apply safe defaults and centralized validation in one place.
+- `importPois` now resolves config guardrails before running and enforces `maxPages` via explicit loop guard.
+- Extended importer caps with explicit `startOffset` range limits.
+- Updated runtime env parsing to reuse importer caps for `startOffset`, `maxPages`, and related pagination inputs.
+- Added tests proving:
+- safe defaults apply when `startOffset` and `maxPages` are omitted,
+- invalid `IMPORT_START_OFFSET` values fail fast with clear range errors.
+
+### E2 - HTTP robustness (timeout + fatal 4xx)
+
+#### E2.3 - `test(http): cover fatal 4xx and retryable 5xx/network errors`
+Status: `DONE`  
+Commits: `test(http): cover fatal 4xx and retryable 5xx/network errors`  
+Paths:
+- `tests/unit/http-client.retry.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added request-count assertions for retryable `500` flows and fatal non-`429` `4xx` flows.
+- Added explicit network-error retry test by simulating socket-level failures in a local Node HTTP server.
+- Verifies retry behavior reaches success after transient failures with exact request counts.
+
+#### E2.4 - `feat(http): add AbortController timeout to OpenChargeMapHttpClient`
+Status: `DONE`  
+Commits: `feat(http): add request timeout via AbortController`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.timeout.test.ts`
+
+Details:
+- `OpenChargeMapHttpClient` uses `AbortController` timeout with constructor parameter `timeoutMs` (default `8000`).
+- Timeout aborts are classified as transient retryable failures.
+- Tests cover:
+- timeout retries then success,
+- timeout retries exhausted then fail,
+- both with request-count assertions.
+
+#### E2.5 - `feat(http): treat 4xx (except 429) as fatal (no retry)`
+Status: `DONE`  
+Commits: `feat(http): treat 4xx (except 429) as fatal errors`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `tests/unit/http-client.retry.test.ts`
+
+Details:
+- Retry classifier treats non-`429` `4xx` responses as fatal (single request, no retry).
+- Keeps `429` retryable and `5xx` retryable.
+
+### E3 - 429 Retry-After support
+
+#### E3.6 - `test(http): cover 429 retry-after behavior`
+Status: `DONE`  
+Commits: `test(http): cover 429 Retry-After behavior with bounded delay`  
+Paths:
+- `tests/unit/http-client.retry-after.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added unit test for `429` handling where server returns `Retry-After=1` for first 2 requests, then `200`.
+- Verifies success and exact request count (`3` total).
+- Uses bounded retry-after delay in test configuration to keep suite fast and deterministic.
+
+#### E3.7 - `feat(http): respect Retry-After header for 429 responses`
+Status: `DONE`  
+Commits: `feat(http): respect Retry-After header for 429 responses`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+
+Details:
+- Parses `Retry-After` as integer seconds for `429` responses.
+- Maps to `delayMs=seconds*1000` and passes delay override through retry classifier.
+- If header is missing/invalid, falls back to default retry backoff behavior.
+- Added optional retry-after cap in client constructor to keep local/unit tests fast without long sleeps.
+
+#### E3.8 - `feat(retry): allow custom delayMs from retry decision`
+Status: `DONE`  
+Commits: `feat(retry): support custom delay (Retry-After) for retry decisions`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `tests/unit/retry.delay.test.ts`
+
+Details:
+- Retry utility accepts `shouldRetry` returning:
+- boolean, or
+- object `{ retry: boolean; delayMs?: number }`.
+- When `delayMs` is provided, retry uses that delay for the current attempt instead of exponential backoff.
+
+### E4 - Invalid POI resilience (skip bad records, keep job alive)
+
+#### E4.9 - `test(import): skip invalid POIs and continue importing`
+Status: `DONE`  
+Commits: `feat(import): finalize phase E4 invalid-POI resilience and summary envelope`  
+Paths:
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added explicit unit scenario with exactly one invalid POI and two valid POIs in the same page.
+- Verifies import continues, performs exactly two upserts, increments skipped count once, and completes.
+- Verifies skipped-record warning remains sanitized (no raw payload leakage).
+
+#### E4.10 - `feat(import): use allSettled for transforms and log skipped invalid records`
+Status: `DONE`  
+Commits: `feat(import): classify invalid POI errors and keep partial progress`, `feat(import): add structured error handler for robust partial-failure handling`  
+Paths:
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/application/import-pois/import.error-handler.ts`
+
+Details:
+- Transform pipeline uses `Promise.allSettled`.
+- `InvalidPoiError` records are skipped without failing the whole job.
+- Structured skip warnings only include safe metadata (`reason`, `offset`, `pageSize`, optional `externalId`, `skippedCount`).
+
+#### E4.11 - `feat(import): add run summary logging (processed/skipped/retried pages)`
+Status: `DONE`  
+Commits: `feat(import): finalize phase E4 invalid-POI resilience and summary envelope`  
+Paths:
+- `src/application/import-pois/import.error-handler.ts`
+- `tests/unit/import.error-handler.test.ts`
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+
+Details:
+- Summary tracker now emits explicit aliases:
+- `processed`, `skipped`, `pagesProcessed`.
+- Backward-compatible fields are preserved:
+- `total`, `skippedInvalid`, `skippedByCode`.
+- Import completion log remains structured JSON (`event: "import.completed"`).
+
+### E5 - Storage hardening (batch dedupe + docs)
+
+#### E5.12 - `test(repo): handle duplicate externalIds within a batch`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `tests/unit/mongo-poi-repository.test.ts`
+
+Details:
+- Added unit test for pure dedupe helper behavior (no real Mongo required).
+- Verifies duplicate `externalId` records keep the last occurrence.
+- Existing mocked `bulkWrite` test continues verifying repository-level behavior end to end.
+
+#### E5.13 - `feat(repo): dedupe externalIds before bulkWrite upsert`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `src/infrastructure/mongo/MongoPoiRepository.ts`
+
+Details:
+- Introduced explicit helper `dedupePoiDocsByExternalId`.
+- Repository `upsertMany()` now uses that helper before `bulkWrite`.
+- Dedupe strategy: last occurrence per `externalId` wins inside a batch.
+
+#### E5.14 - `docs: add DATABASE.md (schema, indexes, upsert strategy)`
+Status: `DONE`  
+Commits: `feat(repo): finalize phase E5 storage hardening and database docs`  
+Paths:
+- `docs/DATABASE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added concise database documentation aligned with current implementation:
+- collection name and stored fields,
+- unique index on `externalId`,
+- `bulkWrite` + `updateOne` + `upsert` strategy,
+- batch dedupe behavior for duplicate `externalId` inputs.
+
+### E6 - Horizontal scaling + performance docs
+
+#### E6.15 - `docs: add SCALING.md (partitioning, leasing, distributed rate limit)`
+Status: `DONE`  
+Commits: `docs: refresh phase E6 scaling and performance guidance`  
+Paths:
+- `docs/SCALING.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added concise horizontal scaling guidance aligned with current architecture.
+- Covers:
+- deterministic partitioning (`bbox`, `country`, `time windows`),
+- lease/claim workflow for multi-worker safety,
+- distributed token-bucket rate limiting in Redis,
+- and why idempotent writes help but do not eliminate duplicate outbound requests.
+
+#### E6.16 - `docs: add PERFORMANCE.md (bulkWrite, concurrency tradeoffs, complexity)`
+Status: `DONE`  
+Commits: `docs: refresh phase E6 scaling and performance guidance`  
+Paths:
+- `docs/PERFORMANCE.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Updated performance notes to be practical and code-aligned:
+- `bulkWrite` benefits,
+- in-batch dedupe impact,
+- `pageSize` and `concurrency` tradeoffs,
+- per-page and per-run complexity,
+- and recommended defaults from current runtime configuration.
+
+### E7 - Final polish for reviewers
+
+#### E7.17 - `docs: update README with run modes, env vars, and CI notes`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Reworked README quick-start and run-mode guidance.
+- Added explicit unit vs e2e execution behavior with `REQUIRE_MONGO_E2E`.
+- Added environment variables table aligned with runtime configuration.
+- Added CI section with concrete pipeline steps and expectations.
+
+#### E7.18 - `chore: add check scripts (check/check:e2e) and pin node version (.nvmrc)`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `package.json`
+- `.nvmrc`
+
+Details:
+- Added `npm run check` (`lint + typecheck + test:unit`).
+- Added `npm run check:e2e` (`REQUIRE_MONGO_E2E=1 npm run test:e2e`).
+- Added `.nvmrc` pinning Node `20`.
+
+#### E7.19 - `chore: final cleanup (remove node_modules from repo, ensure CI visible)`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `.gitignore`
+- `README.md`
+
+Details:
+- Confirmed `node_modules/` remains ignored and untracked.
+- Confirmed CI workflow visibility and run steps are documented in README.
+
+---
+
+## Post-Phase Extensions
+
+### X1 - `feat(design): add job model and leasing interfaces (stubs)`
+Status: `DONE`  
+Commits: `feat(design): add job model and leasing interfaces (stubs)`  
+Paths:
+- `src/core/jobs/ImportJob.ts`
+- `src/ports/ImportJobRepository.ts`
+- `tests/unit/import-job.types.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added conceptual design stubs for future horizontal scaling.
+- New core types include:
+- `ImportJobStatus`, `ImportJob`, and cursor variants (`OffsetCursor`, `TimeWindowCursor`).
+- Added repository contract for leasing workflow:
+- `claimNextJob`, `renewLease`, `markDone`, `markFailed`.
+- No runtime importer wiring changed; this is type-level scaffolding only.
+
+### X2 - `docs: add ADR for not implementing distributed scheduler`
+Status: `DONE`  
+Commits: `docs: add ADR for not implementing distributed scheduler`  
+Paths:
+- `docs/ADR-0002-distributed-scheduler.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added ADR explaining why distributed scheduler runtime behavior is intentionally not implemented in challenge scope.
+- Documents context, decision, rationale, and consequences.
+- Clarifies that current execution remains single-worker while scaling design remains prepared through interfaces and docs.
+
+### X3 - `docs: refine scaling narrative and architectural tradeoffs`
+Status: `DONE`  
+Commits: `docs: refine scaling narrative and architectural tradeoffs`  
+Paths:
+- `README.md`
+- `docs/SCALING.md`
+- `docs/ADR-0002-distributed-scheduler.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Expanded README with an explicit architectural-tradeoffs note and links to scaling/ADR docs.
+- Refined `docs/SCALING.md` to describe a practical multi-worker path with job-shard modeling.
+- Expanded ADR-0002 with alternatives considered and explicit consequences of deferring distributed scheduler implementation.
+
+### X4 - `feat(poi): make validation strict only for ID and tolerate optional fields`
+Status: `DONE`  
+Commits: `feat(poi): make validation strict only for ID and tolerate optional fields`  
+Paths:
+- `src/core/poi/transformPoi.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/import.error-handler.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Tightened POI validation so only `raw.ID` is required for import.
+- Added support for numeric string IDs (`"123"`) converted to integer `externalId`.
+- Rejects invalid IDs with explicit reasons (`missing ID`, `ID is not numeric`, `ID must be a positive integer`).
+- Made `DateLastStatusUpdate` fully optional: missing or invalid values now result in `lastUpdated: undefined` without throwing.
+- Kept raw payload pass-through behavior unchanged.
+
+### X5 - `test(poi): ensure only ID is strict and invalid dates are tolerated`
+Status: `DONE`  
+Commits: `test(poi): ensure only ID is strict and invalid dates are tolerated`  
+Paths:
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Aligned transform unit tests with strict-ID policy requirements.
+- Added explicit assertions for missing/non-numeric IDs, numeric-string conversion, and invalid-date tolerance.
+- Added importer-level unit test proving that:
+- POIs with valid IDs and invalid `DateLastStatusUpdate` are still imported.
+- POIs without ID are skipped.
+- Run summary reports `processed=2`, `skippedInvalid=1`, and correct skipped counters.
+
+### X6 - `docs(runbooks): add operations, observability, security, and input contract guides`
+Status: `DONE`  
+Commits: `docs(runbooks): add operations, observability, security, and input contract guides`  
+Paths:
+- `docs/OPERATIONS.md`
+- `docs/OBSERVABILITY.md`
+- `docs/SECURITY.md`
+- `docs/CONTRACT.md`
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added operations guide with execution, failure handling, and production checklist.
+- Added observability guide with logging boundaries, recommended metrics, and alerting signals.
+- Added security guide documenting validation scope, retry safety, guardrails, and non-goals.
+- Added POI input contract describing strict ID requirements and optional-field tolerance.
+- Added README links for quick navigation to the new operational documentation.
+
+### X7 - `fix(hardening): tighten retry/ID safety and add regression tests`
+Status: `DONE`  
+Commits: `fix(hardening): tighten retry/ID safety and add regression tests`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `src/core/poi/transformPoi.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/application/import-pois/importer.config.ts`
+- `tests/unit/retry.delay.test.ts`
+- `tests/unit/http-client.retry-after.test.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/runtime.config.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Hardened retry delay handling to ignore non-finite custom delays and cap custom delays to `maxDelayMs`.
+- Added protection against extreme/overflowing `Retry-After` values so importer falls back safely instead of hanging.
+- Removed unnecessary HTTP error body reads to avoid loading large upstream error payloads into memory.
+- Tightened POI ID validation for number inputs to require safe positive integers.
+- Made skipped-record `externalId` extraction non-throwing to prevent unexpected import failures in error paths.
+- Normalized optional config strings (`dataset`, `modifiedSince`) by trimming whitespace.
+- Added regression tests for all hardening cases above.
+
+### X8 - `docs(sync): align documentation with current runtime behavior`
+Status: `DONE`  
+Commits: `docs(sync): align documentation with current runtime behavior`  
+Paths:
+- `docs/ARCHITECTURE.md`
+- `docs/OPERATIONS.md`
+- `docs/SCALING.md`
+- `.env.example`
+- `docs/CHANGELOG.md`
+
+Details:
+- Corrected architecture flow description to match actual implementation (sequential page fetch + bounded transform concurrency).
+- Synced operations env-var guidance with current runtime config (required vs optional values).
+- Repaired and completed `docs/SCALING.md` (previously truncated Markdown block) with partitioning, leasing, distributed rate limiting, and idempotency boundaries.
+- Replaced `.env.example` real API key with safe placeholder and aligned entries to supported runtime variables.
+
+### X9 - `test(perf): speed up slow http client unit tests without changing runtime behavior`
+Status: `DONE`  
+Commits: `test(perf): speed up slow http client unit tests with test-scoped retry backoff`  
+Paths:
+- `tests/unit/http-client.request-shape.test.ts`
+- `tests/unit/http-client.timeout.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Optimized slow HTTP client tests by overriding retry backoff values only inside test scope.
+- Preserved retry semantics and request-count assertions.
+- No runtime code or production retry behavior was changed.
+
+### X10 - `docs(meta): add design philosophy and submission changelog summary`
+Status: `DONE`  
+Commits: `docs(meta): add design philosophy and submission changelog summary`  
+Paths:
+- `README.md`
+- `CHANGELOG.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added a `Design Philosophy` section in `README.md` to explicitly describe engineering tradeoffs (idempotency, bounded concurrency, tolerant validation, and scoped complexity).
+- Added a root-level `CHANGELOG.md` with a concise challenge submission summary (`1.0.0`) for external reviewers.
+
+### X11 - `chore(test): make e2e command self-contained with fake OCM bootstrap`
+Status: `DONE`  
+Commits: `chore(test): make e2e command self-contained with fake OCM bootstrap`  
+Paths:
+- `scripts/run-e2e-with-fake-ocm.js`
+- `package.json`
+- `.github/workflows/ci.yml`
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added a dedicated E2E runner script that auto-starts fake OCM when needed, waits for readiness, runs Jest e2e project, and cleans up process lifecycle.
+- Updated `npm run test:e2e` to use the self-contained runner, preventing `ECONNREFUSED` errors when fake OCM is not manually started.
+- Simplified CI by removing the separate fake OCM bootstrap step.
+- Updated README run-mode and CI notes to reflect the new behavior.

@@ -16,25 +16,52 @@ export class InvalidPoiError extends Error {
  *
  * This will be extended once we define the normalized schema more precisely.
  */
+const parseExternalId = (value: unknown): number => {
+  if (value == null) {
+    throw new InvalidPoiError("Invalid POI: missing ID");
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || Number.isNaN(value)) {
+      throw new InvalidPoiError("Invalid POI: ID is not numeric");
+    }
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      throw new InvalidPoiError("Invalid POI: ID must be a positive integer");
+    }
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (normalized.length === 0 || !/^\d+$/.test(normalized)) {
+      throw new InvalidPoiError("Invalid POI: ID is not numeric");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+      throw new InvalidPoiError("Invalid POI: ID must be a positive integer");
+    }
+    return parsed;
+  }
+
+  throw new InvalidPoiError("Invalid POI: ID is not numeric");
+};
+
+const parseOptionalLastUpdated = (value: unknown): Date | undefined => {
+  if (value == null) return undefined;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
 export const transformPoi = (raw: RawPoi): PoiDoc => {
-  let externalId: number;
-  try {
-    externalId = Number((raw as any).ID);
-  } catch {
-    throw new InvalidPoiError("Invalid POI: missing numeric ID");
-  }
-
-  if (!Number.isFinite(externalId)) {
-    throw new InvalidPoiError("Invalid POI: missing numeric ID");
-  }
-
-  const lastUpdatedRaw = (raw as any).DateLastStatusUpdate ?? (raw as any).DateLastVerified ?? undefined;
-  const lastUpdated = lastUpdatedRaw ? new Date(String(lastUpdatedRaw)) : undefined;
+  const rawRecord = raw as Record<string, unknown>;
+  const externalId = parseExternalId(rawRecord.ID);
+  const lastUpdated = parseOptionalLastUpdated(rawRecord.DateLastStatusUpdate);
 
   return {
     _id: randomUUID(),
     externalId,
-    lastUpdated: lastUpdated && !Number.isNaN(lastUpdated.getTime()) ? lastUpdated : undefined,
+    lastUpdated,
     raw
   };
 };

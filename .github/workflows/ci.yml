@@ -51,10 +51,5 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
-      - name: Start fake OCM server
-        run: |
-          node dist/src/fake-ocm-server.js &
-          sleep 1
-
       - name: E2E tests
         run: npm run test:e2e

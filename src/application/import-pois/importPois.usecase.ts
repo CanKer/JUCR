@@ -2,8 +2,8 @@ import type { OpenChargeMapClient } from "../../ports/OpenChargeMapClient";
 import type { PoiRepository } from "../../ports/PoiRepository";
 import { createLimiter } from "../../shared/concurrency/limiter";
 import { transformPoi } from "../../core/poi/transformPoi";
-import type { ImporterConfig } from "./importer.config";
-import { validateImporterConfig } from "./importer.config";
+import type { ImporterConfigInput } from "./importer.config";
+import { resolveImporterConfig } from "./importer.config";
 import {
   classifyTransformFailure,
   createImportRunSummaryTracker,
@@ -14,21 +14,35 @@ import {
  * Imports POIs in pages and persists them using repository bulk upserts.
  */
 export const importPois = async (
-  deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfig }
+  deps: { client: OpenChargeMapClient; repo: PoiRepository; config: ImporterConfigInput }
 ): Promise<void> => {
   const { client, repo } = deps;
-  const config = validateImporterConfig(deps.config);
+  const config = resolveImporterConfig(deps.config);
   const extractExternalId = (rawPoi: unknown): number | undefined => {
-    const id = Number((rawPoi as { ID?: unknown }).ID);
-    return Number.isFinite(id) ? id : undefined;
+    if (typeof rawPoi !== "object" || rawPoi == null) return undefined;
+    const id = (rawPoi as { ID?: unknown }).ID;
+
+    if (typeof id === "number") {
+      return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+    }
+
+    if (typeof id === "string") {
+      const normalized = id.trim();
+      if (!/^\d+$/.test(normalized)) return undefined;
+      const parsed = Number.parseInt(normalized, 10);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+    }
+
+    return undefined;
   };
 
   const limit = createLimiter(config.concurrency);
-  const maxPages = config.maxPages;
   let offset = config.startOffset;
   const summaryTracker = createImportRunSummaryTracker();
 
-  while (summaryTracker.pagesProcessed() < maxPages) {
+  while (true) {
+    if (summaryTracker.pagesProcessed() >= config.maxPages) break;
+
     const currentPage = summaryTracker.nextPageNumber();
     const raw = await client.fetchPois({
       limit: config.pageSize,

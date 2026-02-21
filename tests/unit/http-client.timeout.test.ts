@@ -1,6 +1,21 @@
 import http from "http";
 import type { AddressInfo } from "net";
+import type { RetryOptions } from "../../src/shared/retry/retry";
 import { OpenChargeMapHttpClient } from "../../src/infrastructure/openchargemap/OpenChargeMapHttpClient";
+
+jest.mock("../../src/shared/retry/retry", () => {
+  const actual = jest.requireActual("../../src/shared/retry/retry") as typeof import("../../src/shared/retry/retry");
+  return {
+    ...actual,
+    retry: <T>(fn: () => Promise<T>, opts: RetryOptions) =>
+      actual.retry(fn, {
+        ...opts,
+        minDelayMs: 20,
+        maxDelayMs: 80,
+        jitterRatio: 0
+      })
+  };
+});
 
 type TestServer = {
   baseUrl: string;
@@ -58,6 +73,27 @@ describe("OpenChargeMapHttpClient timeout handling", () => {
 
     expect(pois).toHaveLength(1);
     expect(requests).toBe(3);
+
+    await server.close();
+  });
+
+  it("retries timed out requests and fails after max attempts", async () => {
+    let requests = 0;
+
+    const server = await startServer((_req, res) => {
+      requests += 1;
+      setTimeout(() => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
+      }, 80);
+    });
+
+    const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 10);
+
+    await expect(client.fetchPois({ limit: 10, offset: 0 })).rejects.toThrow(
+      "OCM request timeout after 10ms"
+    );
+    expect(requests).toBe(6);
 
     await server.close();
   });

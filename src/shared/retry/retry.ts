@@ -47,13 +47,17 @@ export const retry = async <T>(fn: () => Promise<T>, opts: RetryOptions): Promis
         throw err;
       }
 
-      const backoff =
-        normalized.delayMs != null
-          ? Math.max(0, normalized.delayMs)
-          : Math.min(maxDelayMs, minDelayMs * Math.pow(2, attempt));
+      const customDelayMs =
+        typeof normalized.delayMs === "number" && Number.isFinite(normalized.delayMs) && normalized.delayMs >= 0
+          ? normalized.delayMs
+          : undefined;
+      const backoff = customDelayMs != null
+        ? Math.min(maxDelayMs, customDelayMs)
+        : Math.min(maxDelayMs, minDelayMs * Math.pow(2, attempt));
       // small jitter to avoid thundering herd (still deterministic-ish)
       const normalizedJitterRatio = Math.min(1, Math.max(0, jitterRatio));
-      const jitter = Math.floor(backoff * normalizedJitterRatio * randomFn());
+      const normalizedRandom = Math.min(1, Math.max(0, randomFn()));
+      const jitter = Math.floor(backoff * normalizedJitterRatio * normalizedRandom);
       const waitMs = backoff + jitter;
       onRetry?.({ attempt: attempt + 1, maxAttempts, delayMs: waitMs, error: err });
       await sleep(waitMs);

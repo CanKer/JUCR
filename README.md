@@ -93,3 +93,26 @@ CI runs:
 - Node version is pinned in `.nvmrc` (`20`).
 - `node_modules/` is ignored in `.gitignore`.
 - Build/test artifacts (`dist/`, `coverage/`, logs) are ignored from commits.
+
+## Architectural Tradeoffs
+
+This implementation intentionally does not include:
+
+- Distributed job leasing
+- Queue-based schedulers
+- Redis-backed global rate limiting
+
+These alternatives were evaluated and documented in:
+
+👉 docs/ADR-0002-distributed-scheduler.md
+
+The goal of this challenge is to demonstrate:
+
+- Correctness
+- Robust retry and pagination behavior
+- Idempotent storage
+- Production-aware extensibility
+
+Not to introduce unnecessary distributed infrastructure.
+
+See docs/SCALING.md for the full horizontal scaling plan.

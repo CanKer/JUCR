@@ -1,44 +1,49 @@
 # Horizontal Scaling Strategy
 
-This importer currently runs as a single worker. The strategy below scales it horizontally without changing domain boundaries.
+The current importer is designed to be horizontally scalable by design, even though it runs as a single worker in this challenge.
 
-## 1) Partitioning model
+Key properties enabling scalability:
 
-Use deterministic partitions so multiple workers can run concurrently with minimal overlap.
+- Stateless execution
+- Idempotent storage layer (externalId unique index + upsert)
+- Bounded concurrency
+- Deterministic pagination guardrails
+- Retry classification (429/5xx vs fatal 4xx)
 
-- Time windows: process fixed `[from, to)` intervals for incremental imports.
-- Geographic shards: split by country code or bbox ranges for full imports.
-- Hybrid: shard by geography first, then paginate by time windows per shard.
+---
 
-Partition IDs must be stable (same inputs -> same partition key) so retries and re-claims remain safe.
+## Minimal Multi-Worker Plan
 
-## 2) Job leasing / claiming
+To scale beyond a single instance:
 
-Use a shared job store (for example `import_windows`) with lease metadata.
+### 1) Work Partitioning
 
-- Candidate statuses: `pending`, `leased`, `done`, `failed`.
-- Claim operation: atomic `findOneAndUpdate` sorted by oldest partition.
-- Lease fields: `owner`, `until`, `attempt`.
-- Recovery: expired leases return to the candidate pool.
+Partition the dataset by one of:
 
-This ensures one active worker per partition while still allowing crash recovery.
+- Country / region
+- Bounding box shards
+- Time windows (based on DateLastStatusUpdate)
 
-## 3) Distributed rate limiting
+Each partition becomes a "job shard".
 
-Per-process backoff is not enough when many workers run at once. Add a Redis token bucket.
+---
 
-- Key scope: per upstream API key (or per API + region).
-- Request rule: consume one token before outbound call.
-- Empty bucket: wait until refill window.
-- Refill policy: tuned to provider quotas.
+### 2) Job Model (Conceptual)
 
-Result: global request rate stays bounded across all workers.
+Example Job Document:
 
-## 4) Why idempotent writes still matter
-
-Current storage writes are idempotent (`externalId` unique + upsert), which helps with retries:
-
-- Re-running a successful partition does not create duplicates.
-- Partial failures can be replayed safely.
-
-But idempotent writes do not prevent duplicated outbound requests. Leasing + distributed rate limiting are still required to avoid waste and limit pressure.
+```json
+{
+  "jobId": "uuid",
+  "shardKey": "country:DE",
+  "status": "pending | running | done | failed",
+  "leaseOwner": "worker-1",
+  "leaseUntil": "2026-01-01T00:00:00Z",
+  "attempts": 1,
+  "cursor": {
+    "startOffset": 0,
+    "maxPages": 100
+  },
+  "lastErrorCode": null,
+  "lastErrorAt": null
+}

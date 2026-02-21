@@ -1,26 +1,87 @@
-# ADR-0002: Not Implementing a Distributed Scheduler in This Challenge
+# ADR-0002: Distributed Scheduler and Job Leasing
 
 ## Status
-
 Accepted
 
 ## Context
 
-The importer design now includes job and leasing interfaces to support future multi-worker execution.  
-A full distributed scheduler (job generation, lease orchestration, retries, rebalancing, and worker coordination) would be the next implementation step for horizontal scaling.
+Phase 2 of the challenge requires the data import process to be horizontally scalable.
+
+The current importer is:
+- Stateless
+- Idempotent at the storage layer (externalId unique + upsert)
+- Designed using ports/adapters (hexagonal architecture)
+
+This makes horizontal scaling technically feasible.
+
+However, implementing a full distributed scheduler (job leasing, distributed rate limiting, worker coordination) would introduce significant infrastructure complexity (Redis, queues, lease management, dead-letter handling) which exceeds the scope of the challenge.
+
+The objective of this implementation is to demonstrate:
+- Correctness
+- Robustness
+- Clear architectural extensibility
+- Production-aware design decisions
+
+Not to build a full distributed job platform.
+
+---
+
+## Alternatives Considered
+
+### 1) Mongo-based Job Leasing (Implemented via collection + TTL leases)
+- Workers claim jobs by setting `leaseOwner` and `leaseUntil`
+- Periodic renewal
+- Dead job detection
+- Requires careful race-condition handling
+
+**Rejected for this phase** due to added complexity and time constraints.
+
+---
+
+### 2) Redis-backed Distributed Rate Limiting (Token Bucket)
+- Global token bucket per API
+- Lua script for atomic token decrement
+- Required to coordinate multiple workers
+
+**Rejected for this phase** because:
+- Not required for single-worker robustness
+- Introduces infrastructure dependency
+- Adds failure modes unrelated to core importer correctness
+
+---
+
+### 3) Queue-based Scheduler (BullMQ / Redis Streams / SQS)
+- Decouples job generation and execution
+- Enables retries, dead-letter queues
+
+**Rejected for this phase** due to:
+- Scope expansion
+- Infrastructure overhead
+- Additional operational concerns
+
+---
 
 ## Decision
 
-A distributed scheduler is **not implemented** in this challenge.
+Do not implement a distributed scheduler in this challenge.
 
-## Rationale
+Instead:
 
-- Challenge scope prioritizes importer correctness, idempotent persistence, retry robustness, and testability.
-- Time is better spent hardening current behavior (pagination guardrails, HTTP resilience, invalid-record handling, storage consistency).
-- The codebase now includes scaling-oriented design stubs (job model + repository contract) so scheduler implementation can be added later without breaking architecture boundaries.
+- Keep importer stateless.
+- Maintain idempotent upsert strategy.
+- Enforce strict retry and pagination guardrails.
+- Provide a documented scaling strategy (see docs/SCALING.md).
+- Design extension points (ports) that would allow job orchestration in future phases.
+
+This ensures correctness and production readiness without over-engineering.
+
+---
 
 ## Consequences
 
-- Runtime remains single-worker.
-- No lease-claim loop is executed in production code yet.
-- Horizontal scaling remains documented as a next step (`docs/SCALING.md`) and prepared by interfaces (`src/core/jobs/ImportJob.ts`, `src/ports/ImportJobRepository.ts`).
+- The importer runs as a single worker by default.
+- Horizontal scaling requires a job-partitioning layer to be added.
+- The current architecture allows that extension without refactoring core logic.
+- Infrastructure complexity is consciously deferred.
+
+This is an intentional architectural tradeoff.

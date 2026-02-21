@@ -962,3 +962,17 @@ Details:
 - Added ADR explaining why distributed scheduler runtime behavior is intentionally not implemented in challenge scope.
 - Documents context, decision, rationale, and consequences.
 - Clarifies that current execution remains single-worker while scaling design remains prepared through interfaces and docs.
+
+### X3 - `docs: refine scaling narrative and architectural tradeoffs`
+Status: `DONE`  
+Commits: `docs: refine scaling narrative and architectural tradeoffs`  
+Paths:
+- `README.md`
+- `docs/SCALING.md`
+- `docs/ADR-0002-distributed-scheduler.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Expanded README with an explicit architectural-tradeoffs note and links to scaling/ADR docs.
+- Refined `docs/SCALING.md` to describe a practical multi-worker path with job-shard modeling.
+- Expanded ADR-0002 with alternatives considered and explicit consequences of deferring distributed scheduler implementation.

@@ -101,8 +101,10 @@ export const wrapRepositoryFailure = (reason: unknown, context: Pick<ImportError
 };
 
 export type ImportRunSummary = {
-  total: number;
+  processed: number;
+  skipped: number;
   pagesProcessed: number;
+  total: number;
   skippedInvalid: number;
   skippedByCode: Partial<Record<ImportSkipCode, number>>;
 };
@@ -126,8 +128,10 @@ export const createImportRunSummaryTracker = () => {
       return skippedByCode[code] ?? 0;
     },
     summary: (): ImportRunSummary => ({
-      total,
+      processed: total,
+      skipped: skippedByCode.invalid_poi ?? 0,
       pagesProcessed,
+      total,
       skippedInvalid: skippedByCode.invalid_poi ?? 0,
       skippedByCode: { ...skippedByCode }
     })

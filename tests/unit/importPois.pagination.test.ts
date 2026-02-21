@@ -80,6 +80,8 @@ describe("importPois pagination", () => {
 
     const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
       event: string;
+      processed: number;
+      skipped: number;
       total: number;
       pagesProcessed: number;
       skippedInvalid: number;
@@ -87,8 +89,10 @@ describe("importPois pagination", () => {
     };
     expect(completion).toEqual({
       event: "import.completed",
-      total: 20,
+      processed: 20,
+      skipped: 0,
       pagesProcessed: 2,
+      total: 20,
       skippedInvalid: 0,
       skippedByCode: {}
     });

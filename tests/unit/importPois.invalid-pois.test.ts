@@ -81,6 +81,8 @@ describe("importPois invalid POI handling", () => {
 
     const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
       event: string;
+      processed: number;
+      skipped: number;
       total: number;
       pagesProcessed: number;
       skippedInvalid: number;
@@ -88,10 +90,71 @@ describe("importPois invalid POI handling", () => {
     };
     expect(completion).toEqual({
       event: "import.completed",
-      total: 3,
+      processed: 3,
+      skipped: 2,
       pagesProcessed: 2,
+      total: 3,
       skippedInvalid: 2,
       skippedByCode: { invalid_poi: 2 }
+    });
+  });
+
+  it("imports page with 2 valid + 1 invalid record and completes with skipped count", async () => {
+    const pages = [
+      [
+        { ID: 100, AddressInfo: { Title: "POI 100" } },
+        { AddressInfo: { Title: "Invalid - no id", Secret: "should-not-leak" } },
+        { ID: 101, AddressInfo: { Title: "POI 101" } }
+      ],
+      []
+    ];
+    let fetchCount = 0;
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => pages[fetchCount++] ?? []
+    };
+
+    const { repo, batches } = createCapturingRepo();
+
+    await importPois({
+      client,
+      repo,
+      config: { ...defaultImporterConfig, pageSize: 3, concurrency: 2 }
+    });
+
+    expect(fetchCount).toBe(2);
+    expect(batches).toHaveLength(1);
+    expect(batches[0].map((doc) => doc.externalId)).toEqual([100, 101]);
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const skipLog = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    expect(skipLog).toEqual({
+      event: "import.poi_skipped",
+      reason: "Invalid POI: missing numeric ID",
+      offset: 0,
+      pageSize: 3,
+      skippedCount: 1
+    });
+    expect(JSON.stringify(skipLog)).not.toContain("Secret");
+    expect(JSON.stringify(skipLog)).not.toContain("should-not-leak");
+
+    const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+      event: string;
+      processed: number;
+      skipped: number;
+      pagesProcessed: number;
+      total: number;
+      skippedInvalid: number;
+      skippedByCode?: { invalid_poi?: number };
+    };
+    expect(completion).toEqual({
+      event: "import.completed",
+      processed: 2,
+      skipped: 1,
+      pagesProcessed: 1,
+      total: 2,
+      skippedInvalid: 1,
+      skippedByCode: { invalid_poi: 1 }
     });
   });
 

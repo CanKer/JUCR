@@ -776,3 +776,45 @@ Details:
 - boolean, or
 - object `{ retry: boolean; delayMs?: number }`.
 - When `delayMs` is provided, retry uses that delay for the current attempt instead of exponential backoff.
+
+### E4 - Invalid POI resilience (skip bad records, keep job alive)
+
+#### E4.9 - `test(import): skip invalid POIs and continue importing`
+Status: `DONE`  
+Commits: `feat(import): finalize phase E4 invalid-POI resilience and summary envelope`  
+Paths:
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added explicit unit scenario with exactly one invalid POI and two valid POIs in the same page.
+- Verifies import continues, performs exactly two upserts, increments skipped count once, and completes.
+- Verifies skipped-record warning remains sanitized (no raw payload leakage).
+
+#### E4.10 - `feat(import): use allSettled for transforms and log skipped invalid records`
+Status: `DONE`  
+Commits: `feat(import): classify invalid POI errors and keep partial progress`, `feat(import): add structured error handler for robust partial-failure handling`  
+Paths:
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/application/import-pois/import.error-handler.ts`
+
+Details:
+- Transform pipeline uses `Promise.allSettled`.
+- `InvalidPoiError` records are skipped without failing the whole job.
+- Structured skip warnings only include safe metadata (`reason`, `offset`, `pageSize`, optional `externalId`, `skippedCount`).
+
+#### E4.11 - `feat(import): add run summary logging (processed/skipped/retried pages)`
+Status: `DONE`  
+Commits: `feat(import): finalize phase E4 invalid-POI resilience and summary envelope`  
+Paths:
+- `src/application/import-pois/import.error-handler.ts`
+- `tests/unit/import.error-handler.test.ts`
+- `tests/unit/importPois.pagination.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+
+Details:
+- Summary tracker now emits explicit aliases:
+- `processed`, `skipped`, `pagesProcessed`.
+- Backward-compatible fields are preserved:
+- `total`, `skippedInvalid`, `skippedByCode`.
+- Import completion log remains structured JSON (`event: "import.completed"`).

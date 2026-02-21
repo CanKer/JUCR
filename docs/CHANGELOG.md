@@ -1093,3 +1093,19 @@ Paths:
 Details:
 - Added a `Design Philosophy` section in `README.md` to explicitly describe engineering tradeoffs (idempotency, bounded concurrency, tolerant validation, and scoped complexity).
 - Added a root-level `CHANGELOG.md` with a concise challenge submission summary (`1.0.0`) for external reviewers.
+
+### X11 - `chore(test): make e2e command self-contained with fake OCM bootstrap`
+Status: `DONE`  
+Commits: `chore(test): make e2e command self-contained with fake OCM bootstrap`  
+Paths:
+- `scripts/run-e2e-with-fake-ocm.js`
+- `package.json`
+- `.github/workflows/ci.yml`
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added a dedicated E2E runner script that auto-starts fake OCM when needed, waits for readiness, runs Jest e2e project, and cleans up process lifecycle.
+- Updated `npm run test:e2e` to use the self-contained runner, preventing `ECONNREFUSED` errors when fake OCM is not manually started.
+- Simplified CI by removing the separate fake OCM bootstrap step.
+- Updated README run-mode and CI notes to reflect the new behavior.

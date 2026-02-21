@@ -21,7 +21,7 @@ Quality checks:
 Test execution:
 
 - `npm run test:unit`: unit-only suite.
-- `npm run test:e2e`: e2e project only.
+- `npm run test:e2e`: e2e project only (auto-starts fake OCM server).
 - E2E tests run only when `REQUIRE_MONGO_E2E=1`.
 
 Example local E2E command:
@@ -37,7 +37,6 @@ npm run test:e2e
 For E2E you need:
 
 1. Mongo running (for example `docker compose up -d mongo`)
-2. Fake OCM server running (for example `npm run start:fake-ocm`)
 
 ## Local Import Run
 
@@ -85,8 +84,7 @@ CI runs:
 3. `npm run typecheck`
 4. `npm run build`
 5. `npm run test:unit`
-6. fake OCM server bootstrap
-7. `npm run test:e2e` with `REQUIRE_MONGO_E2E=1` and Mongo service
+6. `npm run test:e2e` with `REQUIRE_MONGO_E2E=1` and Mongo service
 
 ## Submission Cleanliness
 

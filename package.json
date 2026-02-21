@@ -15,7 +15,7 @@
     "check:e2e": "REQUIRE_MONGO_E2E=1 npm run test:e2e",
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
-    "test:e2e": "jest --selectProjects e2e",
+    "test:e2e": "npm run build && node scripts/run-e2e-with-fake-ocm.js",
     "start:fake-ocm": "npm run build && node dist/src/fake-ocm-server.js",
     "start": "npm run build && node dist/src/server.js"
   },

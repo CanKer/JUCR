@@ -77,3 +77,83 @@ Use small, meaningful commits (Conventional Commits). Each commit should keep th
 1. `feat(config): enforce safe caps for concurrency/pageSize/maxPages/timeout`
 2. `feat(logging): sanitize logs to avoid raw payload leakage`
 3. `docs: add horizontal scaling strategy (partitioning + job leasing + distributed rate limit)`
+
+---
+
+## FASE E — Maintenance & Reliability Improvements
+
+> Focus: consolidate hardening, resilience, and documentation improvements for long-term maintainability and reviewer readiness.
+
+### E1 — Pagination guardrails (no infinite loops)
+1. `test(import): add pagination edge cases (exact-multiple, maxPages cut)`
+2. `feat(import): add startOffset and maxPages guardrails to importer config`
+
+**DoD**
+- Import stops when page is empty OR page < pageSize OR pagesProcessed >= maxPages.
+- Tests prove no infinite loop is possible.
+
+---
+
+### E2 — HTTP robustness (timeout + fatal 4xx)
+3. `test(http): cover fatal 4xx and retryable 5xx/network errors`
+4. `feat(http): add AbortController timeout to OpenChargeMapHttpClient`
+5. `feat(http): treat 4xx (except 429) as fatal (no retry)`
+
+**DoD**
+- 401/403/400 fail fast without retries.
+- Timeouts abort and are treated as retryable transient errors.
+- Tests assert request counts (no accidental extra retries).
+
+---
+
+### E3 — 429 Retry-After support
+6. `test(http): cover 429 retry-after behavior`
+7. `feat(http): respect Retry-After header for 429 responses`
+8. `feat(retry): allow custom delayMs from retry decision`
+
+**DoD**
+- If Retry-After is provided (seconds), client waits that delay before retrying (bounded).
+- If missing/invalid, fallback to exponential backoff.
+
+---
+
+### E4 — Invalid POI resilience (skip bad records, keep job alive)
+9. `test(import): skip invalid POIs and continue importing`
+10. `feat(import): use allSettled for transforms and log skipped invalid records`
+11. `feat(import): add run summary logging (processed/skipped/retried pages)`
+
+**DoD**
+- A single invalid record does not fail the import.
+- Summary log includes counts (processed/skipped/retried).
+
+---
+
+### E5 — Storage hardening (batch dedupe + docs)
+12. `test(repo): handle duplicate externalIds within a batch`
+13. `feat(repo): dedupe externalIds before bulkWrite upsert`
+14. `docs: add DATABASE.md (schema, indexes, upsert strategy)`
+
+**DoD**
+- Duplicate externalIds in the same page do not break bulkWrite behavior.
+- DB schema and indexes are clearly documented.
+
+---
+
+### E6 — Horizontal scaling + performance docs
+15. `docs: add SCALING.md (partitioning, leasing, distributed rate limit)`
+16. `docs: add PERFORMANCE.md (bulkWrite, concurrency tradeoffs, complexity)`
+
+**DoD**
+- Clear conceptual plan to scale beyond a single worker (no implementation required).
+
+---
+
+### E7 — Final polish for reviewers
+17. `docs: update README with run modes, env vars, and CI notes`
+18. `chore: add check scripts (check/check:e2e) and pin node version (.nvmrc)`
+19. `chore: final cleanup (remove node_modules from repo, ensure CI visible)`
+
+**DoD**
+- One command runs quality gates.
+- Repo is clean and reproducible.
+- CI and E2E gating are explained and visible.

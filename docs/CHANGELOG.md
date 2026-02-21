@@ -655,10 +655,13 @@ Pending Phase D items:
 
 ---
 
-## PHASE E - Score-100 Hardening (Phase 2 alignment)
+## PHASE E - Maintenance & Reliability Improvements
 
 Overall status: `IN_PROGRESS`  
 Plan reference: `docs/ROADMAP.md` (PHASE E section)
+
+Naming update:
+- Phase E title was aligned with implementation scope in roadmap updates, moving from a score-based label to maintenance/reliability wording.
 
 ### E1 - Pagination guardrails (no infinite loops)
 

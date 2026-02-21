@@ -27,11 +27,11 @@ Import Points of Interest (POIs) from OpenChargeMap into MongoDB with:
 - `tests/e2e` – end-to-end tests (mongo + fake OCM server)
 
 ## Import flow (target)
-1. Fetch pages/segments from OpenChargeMap concurrently (bounded concurrency).
-2. Transform raw POI -> normalized POI document.
+1. Fetch pages from OpenChargeMap sequentially using offset-based pagination.
+2. Transform POIs concurrently per page with bounded concurrency.
 3. Persist using MongoDB bulk upsert with UUIDv4 as `_id`.
-4. Retry transient failures with backoff.
-5. Emit structured logs (basic console JSON).
+4. Retry transient HTTP failures with backoff (`429`, `5xx`, network/timeout).
+5. Emit structured logs (JSON) for retries, skipped records, and run summary.
 
 ## Non-goals (for this delivery)
 - No production scheduler / watermark orchestration.

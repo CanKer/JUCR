@@ -18,13 +18,21 @@ The importer is designed to be:
 npm run build
 node dist/src/cli/import.js
 ```
-Environment variables must be configured:
+
+Required environment variables:
 
 - `OCM_BASE_URL`
-- `OCM_API_KEY` (if required)
 - `MONGO_URI`
+
+Optional environment variables:
+
+- `OCM_API_KEY`
+- `IMPORT_CONCURRENCY`
 - `IMPORT_PAGE_SIZE`
 - `IMPORT_MAX_PAGES`
+- `IMPORT_START_OFFSET`
+- `IMPORT_DATASET`
+- `IMPORT_MODIFIED_SINCE`
 - `OCM_TIMEOUT_MS`
 
 ## 2. Safe Re-Execution
@@ -91,4 +99,3 @@ This importer does not:
 - Perform automatic rollback.
 
 Those concerns belong to orchestration infrastructure, not the importer core.
-

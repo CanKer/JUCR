@@ -7,7 +7,7 @@ Conventions:
 - `Commits`: commit SHAs where the work was implemented
 - `Paths`: key files affected by each item
 
-Last updated: 2026-02-20
+Last updated: 2026-02-21
 
 ---
 
@@ -1052,3 +1052,19 @@ Details:
 - Made skipped-record `externalId` extraction non-throwing to prevent unexpected import failures in error paths.
 - Normalized optional config strings (`dataset`, `modifiedSince`) by trimming whitespace.
 - Added regression tests for all hardening cases above.
+
+### X8 - `docs(sync): align documentation with current runtime behavior`
+Status: `DONE`  
+Commits: `docs(sync): align documentation with current runtime behavior`  
+Paths:
+- `docs/ARCHITECTURE.md`
+- `docs/OPERATIONS.md`
+- `docs/SCALING.md`
+- `.env.example`
+- `docs/CHANGELOG.md`
+
+Details:
+- Corrected architecture flow description to match actual implementation (sequential page fetch + bounded transform concurrency).
+- Synced operations env-var guidance with current runtime config (required vs optional values).
+- Repaired and completed `docs/SCALING.md` (previously truncated Markdown block) with partitioning, leasing, distributed rate limiting, and idempotency boundaries.
+- Replaced `.env.example` real API key with safe placeholder and aligned entries to supported runtime variables.

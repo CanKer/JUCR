@@ -16,7 +16,8 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    private readonly timeoutMs = 8000
+    private readonly timeoutMs = 8000,
+    private readonly retryAfterMaxDelayMs = Number.POSITIVE_INFINITY
   ) {}
 
   async fetchPois(params: FetchPoisParams): Promise<RawPoi[]> {
@@ -61,7 +62,8 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
         if (res.status === 429) {
           const retryAfter = res.headers.get("retry-after");
           if (retryAfter && /^\d+$/.test(retryAfter)) {
-            err.retryDelayMs = Number(retryAfter) * 1000;
+            const requestedDelayMs = Number(retryAfter) * 1000;
+            err.retryDelayMs = Math.max(0, Math.min(requestedDelayMs, this.retryAfterMaxDelayMs));
           }
         }
         throw err;

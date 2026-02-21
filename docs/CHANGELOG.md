@@ -737,3 +737,42 @@ Paths:
 Details:
 - Retry classifier treats non-`429` `4xx` responses as fatal (single request, no retry).
 - Keeps `429` retryable and `5xx` retryable.
+
+### E3 - 429 Retry-After support
+
+#### E3.6 - `test(http): cover 429 retry-after behavior`
+Status: `DONE`  
+Commits: `test(http): cover 429 Retry-After behavior with bounded delay`  
+Paths:
+- `tests/unit/http-client.retry-after.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added unit test for `429` handling where server returns `Retry-After=1` for first 2 requests, then `200`.
+- Verifies success and exact request count (`3` total).
+- Uses bounded retry-after delay in test configuration to keep suite fast and deterministic.
+
+#### E3.7 - `feat(http): respect Retry-After header for 429 responses`
+Status: `DONE`  
+Commits: `feat(http): respect Retry-After header for 429 responses`  
+Paths:
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+
+Details:
+- Parses `Retry-After` as integer seconds for `429` responses.
+- Maps to `delayMs=seconds*1000` and passes delay override through retry classifier.
+- If header is missing/invalid, falls back to default retry backoff behavior.
+- Added optional retry-after cap in client constructor to keep local/unit tests fast without long sleeps.
+
+#### E3.8 - `feat(retry): allow custom delayMs from retry decision`
+Status: `DONE`  
+Commits: `feat(retry): support custom delay (Retry-After) for retry decisions`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `tests/unit/retry.delay.test.ts`
+
+Details:
+- Retry utility accepts `shouldRetry` returning:
+- boolean, or
+- object `{ retry: boolean; delayMs?: number }`.
+- When `delayMs` is provided, retry uses that delay for the current attempt instead of exponential backoff.

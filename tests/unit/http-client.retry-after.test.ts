@@ -56,12 +56,12 @@ describe("OpenChargeMapHttpClient Retry-After support", () => {
       res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
     });
 
-    const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 5000);
+    const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 5000, 10);
     const pois = await client.fetchPois({ limit: 10, offset: 0 });
 
     expect(pois).toHaveLength(1);
     expect(requests).toBe(3);
-    const usedRetryAfterDelay = timeoutSpy.mock.calls.some((call) => call[1] === 1000);
+    const usedRetryAfterDelay = timeoutSpy.mock.calls.some((call) => call[1] === 10);
     expect(usedRetryAfterDelay).toBe(true);
 
     await server.close();

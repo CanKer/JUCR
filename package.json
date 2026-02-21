@@ -11,6 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "check": "npm run lint && npm run typecheck && npm run test:unit",
+    "check:e2e": "REQUIRE_MONGO_E2E=1 npm run test:e2e",
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
     "test:e2e": "jest --selectProjects e2e",

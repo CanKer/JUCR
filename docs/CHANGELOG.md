@@ -888,3 +888,41 @@ Details:
 - `pageSize` and `concurrency` tradeoffs,
 - per-page and per-run complexity,
 - and recommended defaults from current runtime configuration.
+
+### E7 - Final polish for reviewers
+
+#### E7.17 - `docs: update README with run modes, env vars, and CI notes`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `README.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Reworked README quick-start and run-mode guidance.
+- Added explicit unit vs e2e execution behavior with `REQUIRE_MONGO_E2E`.
+- Added environment variables table aligned with runtime configuration.
+- Added CI section with concrete pipeline steps and expectations.
+
+#### E7.18 - `chore: add check scripts (check/check:e2e) and pin node version (.nvmrc)`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `package.json`
+- `.nvmrc`
+
+Details:
+- Added `npm run check` (`lint + typecheck + test:unit`).
+- Added `npm run check:e2e` (`REQUIRE_MONGO_E2E=1 npm run test:e2e`).
+- Added `.nvmrc` pinning Node `20`.
+
+#### E7.19 - `chore: final cleanup (remove node_modules from repo, ensure CI visible)`
+Status: `DONE`  
+Commits: `chore(reviewer): finalize phase E7 runbooks and check scripts`  
+Paths:
+- `.gitignore`
+- `README.md`
+
+Details:
+- Confirmed `node_modules/` remains ignored and untracked.
+- Confirmed CI workflow visibility and run steps are documented in README.

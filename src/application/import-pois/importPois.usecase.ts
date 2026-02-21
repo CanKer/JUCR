@@ -19,8 +19,21 @@ export const importPois = async (
   const { client, repo } = deps;
   const config = resolveImporterConfig(deps.config);
   const extractExternalId = (rawPoi: unknown): number | undefined => {
-    const id = Number((rawPoi as { ID?: unknown }).ID);
-    return Number.isFinite(id) ? id : undefined;
+    if (typeof rawPoi !== "object" || rawPoi == null) return undefined;
+    const id = (rawPoi as { ID?: unknown }).ID;
+
+    if (typeof id === "number") {
+      return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+    }
+
+    if (typeof id === "string") {
+      const normalized = id.trim();
+      if (!/^\d+$/.test(normalized)) return undefined;
+      const parsed = Number.parseInt(normalized, 10);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+    }
+
+    return undefined;
   };
 
   const limit = createLimiter(config.concurrency);

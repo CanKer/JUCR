@@ -37,8 +37,11 @@ export const validateImporterConfig = (config: ImporterConfig): ImporterConfig =
   return config;
 };
 
-const normalizeOptionalString = (value: string | undefined): string | undefined =>
-  typeof value === "string" && value.trim() !== "" ? value : undefined;
+const normalizeOptionalString = (value: string | undefined): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized === "" ? undefined : normalized;
+};
 
 export const resolveImporterConfig = (input: ImporterConfigInput = {}): ImporterConfig =>
   validateImporterConfig({

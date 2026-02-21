@@ -49,4 +49,14 @@ describe("runtime config caps", () => {
   ])("rejects out-of-range config: $message", ({ env, message }) => {
     expect(() => loadRuntimeConfigFromEnv(env)).toThrow(message);
   });
+
+  it("trims optional string env values for dataset and modifiedSince", () => {
+    const runtime = loadRuntimeConfigFromEnv({
+      IMPORT_DATASET: "  update  ",
+      IMPORT_MODIFIED_SINCE: " 2026-02-20T00:00:00.000Z "
+    });
+
+    expect(runtime.importerConfig.dataset).toBe("update");
+    expect(runtime.importerConfig.modifiedSince).toBe("2026-02-20T00:00:00.000Z");
+  });
 });

@@ -106,4 +106,37 @@ describe("OpenChargeMapHttpClient Retry-After support", () => {
       randomSpy.mockRestore();
     }
   );
+
+  it("falls back to normal backoff when Retry-After overflows numeric range", async () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0);
+    const timeoutSpy = jest.spyOn(global, "setTimeout");
+
+    let requests = 0;
+    const server = await startServer((_req, res) => {
+      requests += 1;
+      if (requests === 1) {
+        res.writeHead(429, {
+          "content-type": "text/plain",
+          "Retry-After": "999999999999999999999999999999999999"
+        });
+        res.end("rate limited");
+        return;
+      }
+
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify([{ ID: 1, AddressInfo: { Title: "POI 1" } }]));
+    });
+
+    const client = new OpenChargeMapHttpClient(server.baseUrl, "test", 5000);
+    const pois = await client.fetchPois({ limit: 10, offset: 0 });
+
+    expect(pois).toHaveLength(1);
+    expect(requests).toBe(2);
+    const usedFallbackBackoff = timeoutSpy.mock.calls.some((call) => call[1] === 250);
+    expect(usedFallbackBackoff).toBe(true);
+
+    await server.close();
+    timeoutSpy.mockRestore();
+    randomSpy.mockRestore();
+  });
 });

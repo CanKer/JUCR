@@ -1027,3 +1027,28 @@ Details:
 - Added security guide documenting validation scope, retry safety, guardrails, and non-goals.
 - Added POI input contract describing strict ID requirements and optional-field tolerance.
 - Added README links for quick navigation to the new operational documentation.
+
+### X7 - `fix(hardening): tighten retry/ID safety and add regression tests`
+Status: `DONE`  
+Commits: `fix(hardening): tighten retry/ID safety and add regression tests`  
+Paths:
+- `src/shared/retry/retry.ts`
+- `src/infrastructure/openchargemap/OpenChargeMapHttpClient.ts`
+- `src/core/poi/transformPoi.ts`
+- `src/application/import-pois/importPois.usecase.ts`
+- `src/application/import-pois/importer.config.ts`
+- `tests/unit/retry.delay.test.ts`
+- `tests/unit/http-client.retry-after.test.ts`
+- `tests/unit/transformPoi.test.ts`
+- `tests/unit/importPois.invalid-pois.test.ts`
+- `tests/unit/runtime.config.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Hardened retry delay handling to ignore non-finite custom delays and cap custom delays to `maxDelayMs`.
+- Added protection against extreme/overflowing `Retry-After` values so importer falls back safely instead of hanging.
+- Removed unnecessary HTTP error body reads to avoid loading large upstream error payloads into memory.
+- Tightened POI ID validation for number inputs to require safe positive integers.
+- Made skipped-record `externalId` extraction non-throwing to prevent unexpected import failures in error paths.
+- Normalized optional config strings (`dataset`, `modifiedSince`) by trimming whitespace.
+- Added regression tests for all hardening cases above.

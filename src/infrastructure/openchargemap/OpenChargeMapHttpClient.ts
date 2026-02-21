@@ -8,6 +8,26 @@ type OcmRequestError = Error & {
   requestUrl?: string;
 };
 
+const defaultRetryAfterMaxDelayMs = 5000;
+
+const parseRetryAfterDelayMs = (
+  retryAfterHeader: string | null,
+  maxDelayMs: number
+): number | undefined => {
+  if (retryAfterHeader == null) return undefined;
+
+  const normalized = retryAfterHeader.trim();
+  if (!/^\d+$/.test(normalized)) return undefined;
+
+  const seconds = Number.parseInt(normalized, 10);
+  if (!Number.isSafeInteger(seconds) || seconds < 0) return undefined;
+
+  const delayMs = seconds * 1000;
+  if (!Number.isFinite(delayMs)) return undefined;
+
+  return Math.max(0, Math.min(delayMs, maxDelayMs));
+};
+
 /**
  * Minimal HTTP client scaffold using native fetch (Node 20).
  * The actual query params and pagination strategy will be implemented in subsequent commits.
@@ -55,16 +75,15 @@ export class OpenChargeMapHttpClient implements OpenChargeMapClient {
       }
 
       if (!res.ok) {
-        await res.text().catch(() => "");
         const err = new Error(`OCM request failed: ${res.status}`) as OcmRequestError;
         err.status = res.status;
         err.requestUrl = safeRequestUrl;
         if (res.status === 429) {
-          const retryAfter = res.headers.get("retry-after");
-          if (retryAfter && /^\d+$/.test(retryAfter)) {
-            const requestedDelayMs = Number(retryAfter) * 1000;
-            err.retryDelayMs = Math.max(0, Math.min(requestedDelayMs, this.retryAfterMaxDelayMs));
-          }
+          const maxDelayMs =
+            Number.isFinite(this.retryAfterMaxDelayMs) && this.retryAfterMaxDelayMs >= 0
+              ? this.retryAfterMaxDelayMs
+              : defaultRetryAfterMaxDelayMs;
+          err.retryDelayMs = parseRetryAfterDelayMs(res.headers.get("retry-after"), maxDelayMs);
         }
         throw err;
       }

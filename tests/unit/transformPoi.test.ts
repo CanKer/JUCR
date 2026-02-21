@@ -39,6 +39,7 @@ describe("transformPoi", () => {
     expect(() => transformPoi({ ID: 0 } as any)).toThrow(new InvalidPoiError("Invalid POI: ID must be a positive integer"));
     expect(() => transformPoi({ ID: -10 } as any)).toThrow(new InvalidPoiError("Invalid POI: ID must be a positive integer"));
     expect(() => transformPoi({ ID: 1.5 } as any)).toThrow(new InvalidPoiError("Invalid POI: ID must be a positive integer"));
+    expect(() => transformPoi({ ID: Number.MAX_SAFE_INTEGER + 1 } as any)).toThrow(new InvalidPoiError("Invalid POI: ID must be a positive integer"));
     expect(() => transformPoi({ ID: "1.5" } as any)).toThrow(new InvalidPoiError("Invalid POI: ID is not numeric"));
   });
 

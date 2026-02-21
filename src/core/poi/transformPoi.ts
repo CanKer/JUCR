@@ -25,7 +25,7 @@ const parseExternalId = (value: unknown): number => {
     if (!Number.isFinite(value) || Number.isNaN(value)) {
       throw new InvalidPoiError("Invalid POI: ID is not numeric");
     }
-    if (!Number.isInteger(value) || value <= 0) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
       throw new InvalidPoiError("Invalid POI: ID must be a positive integer");
     }
     return value;

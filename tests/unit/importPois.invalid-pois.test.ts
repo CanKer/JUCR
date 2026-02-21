@@ -2,6 +2,7 @@ import { importPois } from "../../src/application/import-pois/importPois.usecase
 import { defaultImporterConfig } from "../../src/application/import-pois/importer.config";
 import type { OpenChargeMapClient } from "../../src/ports/OpenChargeMapClient";
 import type { PoiDoc, PoiRepository } from "../../src/ports/PoiRepository";
+import * as transformPoiModule from "../../src/core/poi/transformPoi";
 
 const createCapturingRepo = () => {
   const batches: PoiDoc[][] = [];
@@ -219,6 +220,56 @@ describe("importPois invalid POI handling", () => {
     });
   });
 
+  it("does not fail when skipped POI has non-serializable ID type", async () => {
+    const pages = [
+      [
+        { ID: Symbol("invalid"), AddressInfo: { Title: "bad symbol id" } },
+        { ID: 301, AddressInfo: { Title: "POI 301" } }
+      ],
+      []
+    ];
+    let fetchCount = 0;
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => pages[fetchCount++] ?? []
+    };
+
+    const { repo, batches } = createCapturingRepo();
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, pageSize: 2, concurrency: 2 }
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fetchCount).toBe(2);
+    expect(batches).toHaveLength(1);
+    expect(batches[0].map((doc) => doc.externalId)).toEqual([301]);
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const skipLog = JSON.parse(String(warnSpy.mock.calls[0][0])) as Record<string, unknown>;
+    expect(skipLog).toEqual({
+      event: "import.poi_skipped",
+      reason: "Invalid POI: ID is not numeric",
+      offset: 0,
+      pageSize: 2,
+      skippedCount: 1
+    });
+
+    const completion = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+      processed: number;
+      skipped: number;
+      pagesProcessed: number;
+      skippedInvalid: number;
+    };
+    expect(completion.processed).toBe(1);
+    expect(completion.skipped).toBe(1);
+    expect(completion.pagesProcessed).toBe(1);
+    expect(completion.skippedInvalid).toBe(1);
+  });
+
   it("fails the import for non-POI-validation errors", async () => {
     const client: OpenChargeMapClient = {
       fetchPois: async () => [{ ID: 1, AddressInfo: { Title: "POI 1" } }]
@@ -237,5 +288,36 @@ describe("importPois invalid POI handling", () => {
         config: { ...defaultImporterConfig, pageSize: 10, concurrency: 2 }
       })
     ).rejects.toThrow("mongo write failed");
+  });
+
+  it("fails fast when transform throws an unexpected error", async () => {
+    const originalTransformPoi = transformPoiModule.transformPoi;
+    const transformSpy = jest
+      .spyOn(transformPoiModule, "transformPoi")
+      .mockImplementationOnce(() => {
+        throw new Error("transform exploded");
+      })
+      .mockImplementation((raw) => originalTransformPoi(raw));
+
+    const client: OpenChargeMapClient = {
+      fetchPois: async () => [
+        { ID: 1, AddressInfo: { Title: "POI 1" } },
+        { ID: 2, AddressInfo: { Title: "POI 2" } }
+      ]
+    };
+
+    const upsertMany = jest.fn().mockResolvedValue({ upserted: 0, modified: 0 });
+    const repo: PoiRepository = { upsertMany };
+
+    await expect(
+      importPois({
+        client,
+        repo,
+        config: { ...defaultImporterConfig, pageSize: 10, concurrency: 2 }
+      })
+    ).rejects.toThrow("Unexpected transform failure");
+
+    expect(upsertMany).not.toHaveBeenCalled();
+    transformSpy.mockRestore();
   });
 });

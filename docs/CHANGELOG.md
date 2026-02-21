@@ -929,3 +929,24 @@ Paths:
 Details:
 - Confirmed `node_modules/` remains ignored and untracked.
 - Confirmed CI workflow visibility and run steps are documented in README.
+
+---
+
+## Post-Phase Extensions
+
+### X1 - `feat(design): add job model and leasing interfaces (stubs)`
+Status: `DONE`  
+Commits: `feat(design): add job model and leasing interfaces (stubs)`  
+Paths:
+- `src/core/jobs/ImportJob.ts`
+- `src/ports/ImportJobRepository.ts`
+- `tests/unit/import-job.types.test.ts`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added conceptual design stubs for future horizontal scaling.
+- New core types include:
+- `ImportJobStatus`, `ImportJob`, and cursor variants (`OffsetCursor`, `TimeWindowCursor`).
+- Added repository contract for leasing workflow:
+- `claimNextJob`, `renewLease`, `markDone`, `markFailed`.
+- No runtime importer wiring changed; this is type-level scaffolding only.

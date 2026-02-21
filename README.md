@@ -123,3 +123,19 @@ See docs/SCALING.md for the full horizontal scaling plan.
 - `docs/OBSERVABILITY.md`
 - `docs/SECURITY.md`
 - `docs/CONTRACT.md`
+
+## Design Philosophy
+
+This implementation follows a few core engineering principles:
+
+- **Favor idempotency over orchestration**  
+  Storage safety (unique index + upsert) ensures correctness even under retries and re-execution.
+
+- **Favor bounded concurrency over maximum throughput**  
+  Concurrency is intentionally limited to protect both system resources and the external API.
+
+- **Favor tolerance over strict validation**  
+  Only the `ID` field is required. All other fields are treated as optional and preserved as-is to remain forward-compatible with OpenChargeMap schema evolution.
+
+- **Favor explicit architectural tradeoffs over hidden complexity**  
+  Distributed scheduling and global rate limiting are intentionally documented but not implemented to avoid unnecessary infrastructure complexity in this phase.

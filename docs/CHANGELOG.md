@@ -1081,3 +1081,15 @@ Details:
 - Optimized slow HTTP client tests by overriding retry backoff values only inside test scope.
 - Preserved retry semantics and request-count assertions.
 - No runtime code or production retry behavior was changed.
+
+### X10 - `docs(meta): add design philosophy and submission changelog summary`
+Status: `DONE`  
+Commits: `docs(meta): add design philosophy and submission changelog summary`  
+Paths:
+- `README.md`
+- `CHANGELOG.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added a `Design Philosophy` section in `README.md` to explicitly describe engineering tradeoffs (idempotency, bounded concurrency, tolerant validation, and scoped complexity).
+- Added a root-level `CHANGELOG.md` with a concise challenge submission summary (`1.0.0`) for external reviewers.

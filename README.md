@@ -122,6 +122,14 @@ See docs/SCALING.md for the full horizontal scaling plan.
 - `docs/SECURITY.md`
 - `docs/CONTRACT.md`
 
+## Infrastructure Architecture Docs
+
+- Folder: `docs/Architecture_Infrastructure/`
+- `docs/Architecture_Infrastructure/01_General_Overview_Architecture/general_overview.md`
+- `docs/Architecture_Infrastructure/02_EKS_Cluster_Detail/eks_cluster_detail.md`
+- `docs/Architecture_Infrastructure/03_Database_Cache_Detail/database_cache_detail.md`
+- `docs/Architecture_Infrastructure/04_Serverless_Events_Detail/eks_cluster_detail.md`
+
 ## Design Philosophy
 
 This implementation follows a few core engineering principles:

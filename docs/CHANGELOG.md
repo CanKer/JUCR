@@ -7,7 +7,7 @@ Conventions:
 - `Commits`: commit SHAs where the work was implemented
 - `Paths`: key files affected by each item
 
-Last updated: 2026-02-21
+Last updated: 2026-02-22
 
 ---
 
@@ -1130,3 +1130,33 @@ Details:
 - Updated `npm run test:e2e` to use the self-contained runner, preventing `ECONNREFUSED` errors when fake OCM is not manually started.
 - Simplified CI by removing the separate fake OCM bootstrap step.
 - Updated README run-mode and CI notes to reflect the new behavior.
+
+### X12 - `docs: format eks_cluster_detail markdown structure`
+Status: `DONE`  
+Commits: `docs: format eks_cluster_detail markdown structure`  
+Paths:
+- `docs/Architecture_Infrastructure/02_EKS_Cluster_Detail/eks_cluster_detail.md`
+- `docs/CHANGELOG.md`
+
+Details:
+- Reformatted the EKS cluster detail document for Markdown consistency.
+- Fixed heading hierarchy, numbered and bullet list formatting, and image section structure.
+- Closed and normalized fenced code blocks (including the deployment YAML snippet).
+- Improved readability without changing the technical content.
+
+### X13 - `docs(architecture): add infrastructure architecture packs and complete serverless detail`
+Status: `DONE`  
+Commits: `docs(architecture): add infrastructure architecture packs and assets`  
+Paths:
+- `docs/Architecture_Infrastructure/01_General_Overview_Architecture/general_overview.md`
+- `docs/Architecture_Infrastructure/03_Database_Cache_Detail/database_cache_detail.md`
+- `docs/Architecture_Infrastructure/04_Serverless_Events_Detail/eks_cluster_detail.md`
+- `docs/Architecture_Infrastructure/**/*.png`
+- `docs/Architecture_Infrastructure/**/*.jpg`
+- `docs/CHANGELOG.md`
+
+Details:
+- Added the missing architecture documentation packs for general overview, database/cache layer, and serverless/events layer.
+- Added referenced architecture diagrams and images used by the new documents.
+- Completed and fixed Markdown structure in `04_Serverless_Events_Detail/eks_cluster_detail.md` (closed code blocks, completed payload section, and added operational guardrails).
+- Renamed docs folder from `docs/Architecture Infra` to `docs/Architecture_Infrastructure` for cleaner paths without spaces.
